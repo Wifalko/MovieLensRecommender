@@ -1,7 +1,15 @@
 import pandas as pd
 
+folder_path = 'Data/ml-1m/'
+movies = 'movies.dat'
+users = 'users.dat'
+ratings = 'ratings.dat'
+name_movie = folder_path + movies
+name_user = folder_path + users
+name_rating = folder_path + ratings
+
 class file_reader:
-    def __init__(self, name_ratings, name_movies, name_users):
+    def __init__(self, name_ratings=name_rating, name_movies=name_movie, name_users=name_user):
         self.name_ratings = name_ratings
         self.name_movies = name_movies
         self.name_users = name_users
@@ -50,3 +58,5 @@ class file_reader:
 
     def run(self):
         return self.get_ratings(), self.get_movies(), self.get_users()
+    
+

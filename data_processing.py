@@ -3,15 +3,7 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csr_matrix
 
-folder_path = 'Data/ml-1m/'
-movies = 'movies.dat'
-users = 'users.dat'
-ratings = 'ratings.dat'
-name_movies = folder_path + movies
-name_users = folder_path + users
-name_ratings = folder_path + ratings
-
-reader = file_reader(name_ratings, name_movies, name_users)
+reader = file_reader()
 data_ratings, data_movies, data_users = reader.run()
 
 movies_subset = data_movies[['MovieID', 'Title']]
