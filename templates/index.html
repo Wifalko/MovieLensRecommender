@@ -12,6 +12,21 @@
             padding: 20px;
         }
         
+        nav {
+            margin-bottom: 20px;
+        }
+        
+        nav a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+        
         .search-container {
             position: relative;
             margin-bottom: 20px;
@@ -104,6 +119,11 @@
 </head>
 <body>
     <h1>Lista filmów</h1>
+
+    <!-- Dodany link do strony z rekomendacjami -->
+    <nav>
+        <a href="/recommendations">Polecane Filmy</a>
+    </nav>
     
     <div class="search-container">
         <input type="text" id="searchInput" placeholder="Wyszukaj film...">
@@ -129,7 +149,6 @@
         const searchInput = document.getElementById('searchInput');
         const suggestionsDiv = document.getElementById('suggestions');
         
-        // Obsługa wyszukiwania
         searchInput.addEventListener('input', function(e) {
             clearTimeout(searchTimeout);
             const query = e.target.value;
@@ -142,7 +161,6 @@
             searchTimeout = setTimeout(() => fetchSuggestions(query), 300);
         });
         
-        // Ukrywanie sugestii przy kliknięciu poza nimi
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.search-container')) {
                 suggestionsDiv.style.display = 'none';
@@ -183,10 +201,9 @@
         
         
         async function selectMovie(movie) {
-            searchInput.value = '';  // Czyścimy pole wyszukiwania
+            searchInput.value = ''; 
             suggestionsDiv.style.display = 'none';
             
-            // Sprawdź, czy film nie jest już w tabeli
             const existingMovie = document.querySelector(`tr[data-movie-id="${movie.MovieID}"]`);
             if (existingMovie) {
                 alert('Ten film jest już na liście!');
@@ -256,8 +273,6 @@
                 
                 if (response.ok) {
                     alert('Ocena została zapisana!');
-                    // Remove this line to keep the selected rating:
-                    // ratingSelect.value = '';
                 } else {
                     alert('Błąd podczas zapisywania oceny');
                 }

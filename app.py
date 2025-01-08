@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import os
+from data_processing import get_recommendations_for_user
 
 
 
@@ -11,7 +12,7 @@ reader = file_reader()
 data_ratings, data_movies, data_users = reader.run()
 
 movies = data_movies
-user_ratings = pd.DataFrame(columns=["UserID", "MovieID", "Rating", "Timestamp", "Title"])
+user_ratings = pd.DataFrame(columns=["UserID", "MovieID", "Rating", "Timestamp", "Title", "Genres"])
 
 app = Flask(__name__)
 
@@ -69,11 +70,12 @@ def rate_movie():
     movie = movies[movies['MovieID'] == movie_id].iloc[0]
     
     new_rating = {
-        "UserID": 9999,  # Przykładowy ID użytkownika
+        "UserID": 9999,  
         "MovieID": movie_id,
         "Rating": float(rating),
         "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "Title": movie["Title"],
+        "Genres": movie["Genres"]
     }
     
     global user_ratings
@@ -81,6 +83,11 @@ def rate_movie():
     save_ratings_to_file()  
     
     return jsonify({'success': True})
+
+@app.route('/recommendations')
+def recommendations():
+    user_recommendations = get_recommendations_for_user()
+    return render_template('recommendations.html', recommended_movies=user_recommendations)
 
 RATINGS_FILE = 'user_ratings.json'
 
