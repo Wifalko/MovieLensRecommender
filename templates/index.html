@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista filmów</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .suggestion-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestion-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .suggestion-genre {
+            font-size: 0.8em;
+            color: #666;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .remove-btn {
+            padding: 5px 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .remove-btn:hover {
+            background-color: #c82333;
+        }
+
+        .actions-cell {
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Lista filmów</h1>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Wyszukaj film...">
+        <div id="suggestions" class="suggestions" style="display: none;"></div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Tytuł</th>
+                <th>Gatunki</th>
+                <th>Średnia ocena</th>
+                <th>Twoja ocena</th>
+            </tr>
+        </thead>
+        <tbody id="moviesList">
+        </tbody>
+    </table>
+
+    <script>
+        let searchTimeout;
+        
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsDiv = document.getElementById('suggestions');
+        
+        // Obsługa wyszukiwania
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            const query = e.target.value;
+            
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => fetchSuggestions(query), 300);
+        });
+        
+        // Ukrywanie sugestii przy kliknięciu poza nimi
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-container')) {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+        
+        async function fetchSuggestions(query) {
+            try {
+                const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
+                const suggestions = await response.json();
+                displaySuggestions(suggestions);
+            } catch (error) {
+                console.error('Błąd podczas pobierania sugestii:', error);
+            }
+        }
+        
+        function displaySuggestions(suggestions) {
+            suggestionsDiv.innerHTML = '';
+            
+            if (suggestions.length === 0) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            
+            suggestions.forEach(movie => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `
+                    <div class="suggestion-title">${movie.Title}</div>
+                    <div class="suggestion-genre">${movie.Genres}</div>
+                `;
+                div.onclick = () => selectMovie(movie);
+                suggestionsDiv.appendChild(div);
+            });
+            
+            suggestionsDiv.style.display = 'block';
+        }
+        
+        
+        async function selectMovie(movie) {
+            searchInput.value = '';  // Czyścimy pole wyszukiwania
+            suggestionsDiv.style.display = 'none';
+            
+            // Sprawdź, czy film nie jest już w tabeli
+            const existingMovie = document.querySelector(`tr[data-movie-id="${movie.MovieID}"]`);
+            if (existingMovie) {
+                alert('Ten film jest już na liście!');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/get_movie/${movie.MovieID}`);
+                const movieDetails = await response.json();
+                addMovieToTable(movieDetails);
+            } catch (error) {
+                console.error('Błąd podczas pobierania szczegółów filmu:', error);
+            }
+        }
+        
+        function addMovieToTable(movie) {
+            const tbody = document.getElementById('moviesList');
+            const row = document.createElement('tr');
+            row.setAttribute('data-movie-id', movie.MovieID);
+            
+            const ratingOptions = Array.from({length: 10}, (_, i) => (i + 1) * 0.5)
+                .map(value => `<option value="${value}">${value}</option>`)
+                .join('');
+            
+            row.innerHTML = `
+                <td>${movie.Title}</td>
+                <td>${movie.Genres}</td>
+                <td>${movie.AverageRating ? movie.AverageRating.toFixed(1) : 'Brak ocen'}</td>
+                <td class="actions-cell">
+                    <select class="rating-select">
+                        <option value="">Wybierz ocenę</option>
+                        ${ratingOptions}
+                    </select>
+                    <button class="rate-btn" onclick="rateMovie(${movie.MovieID}, this)">Oceń</button>
+                    <button class="remove-btn" onclick="removeMovie(this)">Usuń</button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        }
+        
+        function removeMovie(button) {
+            const row = button.closest('tr');
+            row.remove();
+        }
+        
+        async function rateMovie(movieId, button) {
+            const ratingSelect = button.parentElement.querySelector('.rating-select');
+            const rating = ratingSelect.value;
+            
+            if (!rating) {
+                alert('Wybierz ocenę!');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/rate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        movieId: movieId,
+                        rating: rating
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Ocena została zapisana!');
+                    // Remove this line to keep the selected rating:
+                    // ratingSelect.value = '';
+                } else {
+                    alert('Błąd podczas zapisywania oceny');
+                }
+            } catch (error) {
+                console.error('Błąd podczas zapisywania oceny:', error);
+                alert('Błąd podczas zapisywania oceny');
+            }
+        }
+    </script>
+</body>
+</html>
