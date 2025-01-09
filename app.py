@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import os
 from data_processing import get_recommendations_for_user
+import json
 
 
 
@@ -45,8 +46,7 @@ def get_movie(movie_id):
     movie = movies[movies['MovieID'] == movie_id]
     if len(movie) == 0:
         return jsonify({'error': 'Film nie został znaleziony'}), 404
-    
-    # Oblicz średnią ocenę dla filmu
+
     avg_rating = data_ratings[data_ratings['MovieID'] == movie_id]['Rating'].mean()
     
     movie_data = {
@@ -89,6 +89,36 @@ def recommendations():
     user_recommendations = get_recommendations_for_user()
     return render_template('recommendations.html', recommended_movies=user_recommendations)
 
+@app.route('/get_saved_ratings')
+def get_saved_ratings():
+    try:
+        if os.path.exists('user_ratings.json'):
+            with open('user_ratings.json', 'r', encoding='utf-8') as file:
+                ratings = json.load(file)
+            return jsonify(ratings)
+        return jsonify([])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/delete_rating/<int:movie_id>', methods=['DELETE'])
+def delete_rating(movie_id):
+    try:
+        if os.path.exists('user_ratings.json'):
+            with open('user_ratings.json', 'r', encoding='utf-8') as file:
+                ratings = json.load(file)
+            
+            # Filtruj oceny, usuwając ocenę dla danego filmu
+            ratings = [rating for rating in ratings if rating['MovieID'] != movie_id]
+            
+            # Zapisz zaktualizowaną listę ocen
+            with open('user_ratings.json', 'w', encoding='utf-8') as file:
+                json.dump(ratings, file, indent=2)
+                
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Plik z ocenami nie istnieje'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
 RATINGS_FILE = 'user_ratings.json'
 
 def save_ratings_to_file():

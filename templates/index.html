@@ -115,12 +115,39 @@
             display: flex;
             align-items: center;
         }
+
+        .current-rating {
+            background-color: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .rating-select {
+            padding: 5px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .rate-btn {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .rate-btn:hover {
+            background-color: #0056b3;
+        }
     </style>
 </head>
 <body>
     <h1>Lista filmów</h1>
-
-    <!-- Dodany link do strony z rekomendacjami -->
+    
     <nav>
         <a href="/recommendations">Polecane Filmy</a>
     </nav>
@@ -144,8 +171,53 @@
     </table>
 
     <script>
+        async function loadSavedRatings() {
+            try {
+                const response = await fetch('/get_saved_ratings');
+                const ratings = await response.json();
+                
+                for (const rating of ratings) {
+                    const movieResponse = await fetch(`/get_movie/${rating.MovieID}`);
+                    const movieDetails = await movieResponse.json();
+                    addMovieToTable(movieDetails, rating.Rating);
+                }
+            } catch (error) {
+                console.error('Błąd podczas wczytywania zapisanych ocen:', error);
+            }
+        }
+
+        function addMovieToTable(movie, currentRating = null) {
+            const tbody = document.getElementById('moviesList');
+            const row = document.createElement('tr');
+            row.setAttribute('data-movie-id', movie.MovieID);
+            
+            const ratingOptions = Array.from({length: 10}, (_, i) => (i + 1) * 0.5)
+                .map(value => `<option value="${value}" ${currentRating === value ? 'selected' : ''}>${value}</option>`)
+                .join('');
+            
+            row.innerHTML = `
+                <td>${movie.Title}</td>
+                <td>${movie.Genres}</td>
+                <td>${movie.AverageRating ? movie.AverageRating.toFixed(1) : 'Brak ocen'}</td>
+                <td class="actions-cell">
+                    ${currentRating ? 
+                        `<span class="current-rating">Twoja ocena: ${currentRating}</span>` : 
+                        ''}
+                    <select class="rating-select">
+                        <option value="">Wybierz ocenę</option>
+                        ${ratingOptions}
+                    </select>
+                    <button class="rate-btn" onclick="rateMovie(${movie.MovieID}, this)">
+                        ${currentRating ? 'Zmień ocenę' : 'Oceń'}
+                    </button>
+                    <button class="remove-btn" onclick="removeMovie(this)">Usuń</button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        }
+
         let searchTimeout;
-        
         const searchInput = document.getElementById('searchInput');
         const suggestionsDiv = document.getElementById('suggestions');
         
@@ -199,9 +271,8 @@
             suggestionsDiv.style.display = 'block';
         }
         
-        
         async function selectMovie(movie) {
-            searchInput.value = ''; 
+            searchInput.value = '';
             suggestionsDiv.style.display = 'none';
             
             const existingMovie = document.querySelector(`tr[data-movie-id="${movie.MovieID}"]`);
@@ -219,39 +290,9 @@
             }
         }
         
-        function addMovieToTable(movie) {
-            const tbody = document.getElementById('moviesList');
-            const row = document.createElement('tr');
-            row.setAttribute('data-movie-id', movie.MovieID);
-            
-            const ratingOptions = Array.from({length: 10}, (_, i) => (i + 1) * 0.5)
-                .map(value => `<option value="${value}">${value}</option>`)
-                .join('');
-            
-            row.innerHTML = `
-                <td>${movie.Title}</td>
-                <td>${movie.Genres}</td>
-                <td>${movie.AverageRating ? movie.AverageRating.toFixed(1) : 'Brak ocen'}</td>
-                <td class="actions-cell">
-                    <select class="rating-select">
-                        <option value="">Wybierz ocenę</option>
-                        ${ratingOptions}
-                    </select>
-                    <button class="rate-btn" onclick="rateMovie(${movie.MovieID}, this)">Oceń</button>
-                    <button class="remove-btn" onclick="removeMovie(this)">Usuń</button>
-                </td>
-            `;
-            
-            tbody.appendChild(row);
-        }
-        
-        function removeMovie(button) {
-            const row = button.closest('tr');
-            row.remove();
-        }
-        
         async function rateMovie(movieId, button) {
-            const ratingSelect = button.parentElement.querySelector('.rating-select');
+            const row = button.closest('tr');
+            const ratingSelect = row.querySelector('.rating-select');
             const rating = ratingSelect.value;
             
             if (!rating) {
@@ -267,11 +308,22 @@
                     },
                     body: JSON.stringify({
                         movieId: movieId,
-                        rating: rating
+                        rating: parseFloat(rating)
                     })
                 });
                 
                 if (response.ok) {
+                    const currentRatingSpan = row.querySelector('.current-rating');
+                    if (currentRatingSpan) {
+                        currentRatingSpan.textContent = `Twoja ocena: ${rating}`;
+                    } else {
+                        const actionsCell = row.querySelector('.actions-cell');
+                        const span = document.createElement('span');
+                        span.className = 'current-rating';
+                        span.textContent = `Twoja ocena: ${rating}`;
+                        actionsCell.insertBefore(span, actionsCell.firstChild);
+                    }
+                    button.textContent = 'Zmień ocenę';
                     alert('Ocena została zapisana!');
                 } else {
                     alert('Błąd podczas zapisywania oceny');
@@ -281,6 +333,13 @@
                 alert('Błąd podczas zapisywania oceny');
             }
         }
+        
+        function removeMovie(button) {
+            const row = button.closest('tr');
+            row.remove();
+        }
+
+        document.addEventListener('DOMContentLoaded', loadSavedRatings);
     </script>
 </body>
 </html>

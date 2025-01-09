@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Polecane Filmy</title>
+    <title>Podobni Użytkownicy</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,35 +12,55 @@
             padding: 20px;
         }
         
-        .movie-list {
-            list-style: none;
-            padding: 0;
+        .user-section {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
         }
         
-        .movie-item {
+        .user-header {
+            background-color: #f8f9fa;
             padding: 15px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .similarity-score {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .rating {
+            background-color: #007bff;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            display: inline-block;
         }
         
         .movie-title {
             font-weight: bold;
-            font-size: 1.1em;
         }
         
         .movie-genres {
             color: #666;
             font-size: 0.9em;
-        }
-        
-        .movie-rating {
-            background-color: #007bff;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-weight: bold;
         }
         
         .back-link {
@@ -59,18 +79,44 @@
     </style>
 </head>
 <body>
-    <h1>Polecane Filmy</h1>
-    <ul class="movie-list">
-        {% for movie in recommended_movies %}
-        <li class="movie-item">
-            <div>
-                <div class="movie-title">{{ movie.Title }}</div>
-                <div class="movie-genres">{{ movie.Genres }}</div>
+    <h1>Podobni Użytkownicy</h1>
+    
+    {% for user in recommended_movies %}
+    <div class="user-section">
+        <div class="user-header">
+            <h2>Użytkownik nr {{ user.UserId }}</h2>
+            <div class="similarity-score">
+                Podobieństwo: {{ "%.1f"|format(user.SimilarityScore * 100) }}%
             </div>
-            <span class="movie-rating">{{ "%.1f"|format(movie.Rating) }}</span>
-        </li>
-        {% endfor %}
-    </ul>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Film</th>
+                    <th>Ocena użytkownika</th>
+                    <th>Średnia ocena</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movie in user.Recommendations %}
+                <tr>
+                    <td>
+                        <div class="movie-title">{{ movie.Title }}</div>
+                        <div class="movie-genres">{{ movie.Genres }}</div>
+                    </td>
+                    <td>
+                        <span class="rating">{{ "%.1f"|format(movie.UserRating) }}</span>
+                    </td>
+                    <td>
+                        <span class="rating">{{ "%.1f"|format(movie.AverageRating) }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+    
     <a href="/" class="back-link">Powrót do Strony Głównej</a>
 </body>
 </html>
