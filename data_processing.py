@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csr_matrix
 import json
+
 def get_recommendations_for_user(user_id = 9999, neighbours_amount = 3):
     with open('user_ratings.json', 'r', encoding='utf-8') as file:
         user_input_data = json.load(file)
@@ -13,7 +14,7 @@ def get_recommendations_for_user(user_id = 9999, neighbours_amount = 3):
     reader = file_reader()
     data_ratings, data_movies, data_users = reader.run()
 
-    movies_subset = data_movies[['MovieID', 'Title']]
+    movies_subset = data_movies[['MovieID', 'Title', 'Genres']]  # Dodano 'Genres'
     key_values = pd.merge(data_ratings, data_movies, on='MovieID', how='inner')
     key_value = pd.concat([key_values, user_data], ignore_index=True)
     MatrixDataset = key_value.groupby(by=['UserID','Title'], as_index=False).agg({"Rating":"mean"})
@@ -28,33 +29,38 @@ def get_recommendations_for_user(user_id = 9999, neighbours_amount = 3):
     knn_model.fit(user_to_movie_sparse_df)
 
     user_row = user_to_movie_df.loc[user_id].values.reshape(1, -1)
-    distances, indices = knn_model.kneighbors(user_row , n_neighbors = neighbours_amount)
+    distances, indices = knn_model.kneighbors(user_row, n_neighbors=neighbours_amount)
 
-    neighbor_indices = indices.flatten()[1:] 
+    neighbor_indices = indices.flatten()[1:]
     neighbor_user_ids = user_to_movie_df.index[neighbor_indices]
 
     average_ratings = data_ratings.groupby('MovieID').agg({'Rating': 'mean'}).reset_index()
-    average_ratings = pd.merge(average_ratings, data_movies[['MovieID', 'Title']], on='MovieID', how='inner')
+    average_ratings = pd.merge(average_ratings, movies_subset, on='MovieID', how='inner')
 
-    # Collect recommended titles
-    recommended_titles = []
+    recommended_movies = []
     for neighbor_id in neighbor_user_ids:
         neighbor_ratings = user_to_movie_df.loc[neighbor_id]
-        recommended_titles.extend(neighbor_ratings[neighbor_ratings > 0].index.tolist())
+        recommended_titles = neighbor_ratings[neighbor_ratings > 0].index.tolist()
+        
+        # Dodaj informacje o filmach do rekomendacji
+        for title in recommended_titles:
+            movie_info = movies_subset[movies_subset['Title'] == title].iloc[0]
+            rating = average_ratings[average_ratings['Title'] == title]['Rating'].values[0]
+            recommended_movies.append({
+                'Title': title,
+                'Genres': movie_info['Genres'],
+                'Rating': float(rating)
+            })
 
-    # Deduplicate and sort recommended titles by their average rating from data_ratings
-    recommended_titles = list(set(recommended_titles))
-    recommended_titles_with_ratings = [
-        (title, average_ratings.loc[average_ratings['Title'] == title, 'Rating'].values[0])
-        for title in recommended_titles
-    ]
-    sorted_recommended_titles = sorted(recommended_titles_with_ratings, key=lambda x: x[1], reverse=True)
+    unique_recommendations = []
+    seen_titles = set()
+    
+    for movie in sorted(recommended_movies, key=lambda x: x['Rating'], reverse=True):
+        if movie['Title'] not in seen_titles:
+            unique_recommendations.append(movie)
+            seen_titles.add(movie['Title'])
 
-
-    sorted_titles = [title for title, _ in sorted_recommended_titles]
-
-    return sorted_titles
+    return unique_recommendations
 
 if __name__ == "__main__":
     user_recommendations = get_recommendations_for_user()
-    print(user_recommendations)

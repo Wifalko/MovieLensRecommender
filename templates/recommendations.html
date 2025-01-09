@@ -4,14 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Polecane Filmy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .movie-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .movie-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .movie-title {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .movie-genres {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .movie-rating {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .back-link:hover {
+            background-color: #0056b3;
+        }
+    </style>
 </head>
 <body>
     <h1>Polecane Filmy</h1>
-    <ul>
+    <ul class="movie-list">
         {% for movie in recommended_movies %}
-        <li>{{ movie.Title }} - {{ movie.Genres }}</li>
+        <li class="movie-item">
+            <div>
+                <div class="movie-title">{{ movie.Title }}</div>
+                <div class="movie-genres">{{ movie.Genres }}</div>
+            </div>
+            <span class="movie-rating">{{ "%.1f"|format(movie.Rating) }}</span>
+        </li>
         {% endfor %}
     </ul>
-    <a href="/">Powrót do Strony Głównej</a>
+    <a href="/" class="back-link">Powrót do Strony Głównej</a>
 </body>
 </html>
