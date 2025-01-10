@@ -4,9 +4,8 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import os
-from data_processing import get_recommendations_for_user
 import json
-
+from data_processing import get_recommendations
 
 
 reader = file_reader()
@@ -84,10 +83,7 @@ def rate_movie():
     
     return jsonify({'success': True})
 
-@app.route('/recommendations')
-def recommendations():
-    user_recommendations = get_recommendations_for_user()
-    return render_template('recommendations.html', recommended_movies=user_recommendations)
+
 
 @app.route('/get_saved_ratings')
 def get_saved_ratings():
@@ -118,7 +114,26 @@ def delete_rating(movie_id):
         return jsonify({'success': False, 'error': 'Plik z ocenami nie istnieje'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-    
+
+
+@app.route('/recommendations')
+def recommendations():
+    # Możesz dodać parametr w URL, który model chcesz użyć
+    model_type = request.args.get('model', 'knn')  # domyślnie użyj KNN
+    recommended_movies = get_recommendations(model_type)
+    return render_template('recommendations.html', recommended_movies=recommended_movies)
+
+# Albo możesz stworzyć osobne endpointy dla każdego modelu
+@app.route('/recommendations/knn')
+def knn_recommendations():
+    recommended_movies = get_recommendations('knn')
+    return render_template('recommendations.html', recommended_movies=recommended_movies)
+
+@app.route('/recommendations/ncf')
+def ncf_recommendations():
+    recommended_movies = get_recommendations('ncf')
+    return render_template('recommendations.html', recommended_movies=recommended_movies)
+
 RATINGS_FILE = 'user_ratings.json'
 
 def save_ratings_to_file():
