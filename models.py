@@ -8,6 +8,7 @@ from DataReader import file_reader
 from sklearn.neighbors import NearestNeighbors
 from scipy.sparse import csr_matrix
 import json
+import os
 
 reader = file_reader()
 data_ratings, data_movies, data_users = reader.run()
@@ -116,16 +117,44 @@ class KNNRecommender:
     
 
 class NCF(nn.Module):
-    def __init__(self, num_users, num_items, latent_dim, layers):
+    def __init__(self, data_ratings, data_movies, latent_dim=16, layers=[32, 16, 8]):
+        """
+        Initialize the NCF model with data
+        
+        Args:
+            data_ratings: DataFrame with ratings data
+            data_movies: DataFrame with movies data
+            latent_dim: dimension of the embedding layers
+            layers: list of layer sizes for the neural network
+        """
+        self.data_ratings = data_ratings
+        self.data_movies = data_movies
+        self.recommender = None
+        
+        # Get unique users and movies
+        self.user_ids = data_ratings['UserID'].unique()
+        self.movie_ids = data_movies['MovieID'].unique()
+        
+        # Initialize the neural network
         super(NCF, self).__init__()
-        self.user_embedding = nn.Embedding(num_users, latent_dim)
-        self.movie_embedding = nn.Embedding(num_items, latent_dim)
+        self.user_embedding = nn.Embedding(len(self.user_ids), latent_dim)
+        self.movie_embedding = nn.Embedding(len(self.movie_ids), latent_dim)
+        
+        # Create the fully connected layers
         self.fc_layers = nn.ModuleList()
         input_dim = latent_dim * 2
         for layer_size in layers:
             self.fc_layers.append(nn.Linear(input_dim, layer_size))
             input_dim = layer_size
         self.output_layer = nn.Linear(input_dim, 1)
+        
+        # Create mappings for user and movie IDs
+        self.user_to_idx = {user_id: idx for idx, user_id in enumerate(self.user_ids)}
+        self.movie_to_idx = {movie_id: idx for idx, movie_id in enumerate(self.movie_ids)}
+        
+        # Set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(self.device)
 
     def forward(self, user_indices, movie_indices):
         user_features = self.user_embedding(user_indices)
@@ -137,58 +166,98 @@ class NCF(nn.Module):
         
     def prepare_data(self, user_data):
         """Prepare data for the NCF model by combining historical and user data"""
-        # Combine historical ratings with new user data
         self.all_ratings = pd.concat([self.data_ratings, user_data], ignore_index=True)
         
-        # Create the recommender instance
-        self.recommender = MovieRecommender(self.all_ratings, self.data_movies)
+        # Update user and movie mappings
+        self.user_ids = self.all_ratings['UserID'].unique()
+        self.movie_ids = self.data_movies['MovieID'].unique()
+        self.user_to_idx = {user_id: idx for idx, user_id in enumerate(self.user_ids)}
+        self.movie_to_idx = {movie_id: idx for idx, movie_id in enumerate(self.movie_ids)}
         
-    def train(self, epochs=10):
+        # Prepare training data
+        users = self.all_ratings['UserID'].map(self.user_to_idx).values
+        movies = self.all_ratings['MovieID'].map(self.movie_to_idx).values
+        ratings = self.all_ratings['Rating'].values / 5.0
+        
+        return train_test_split(users, movies, ratings, test_size=0.2, random_state=42)
+        
+    def train(self, epochs=10, batch_size=64):
         """Train the NCF model"""
-        if self.recommender is None:
-            raise ValueError("Call prepare_data before training")
-        self.recommender.train(epochs=epochs)
+        X_train_user, X_test_user, X_train_movie, X_test_movie, y_train, y_test = self.prepare_data()
         
-    def save_model(self):
-        """Save the trained model"""
-        if self.recommender is None:
-            raise ValueError("No model to save")
-        save_model(self.recommender.model)
+        criterion = nn.MSELoss()
+        optimizer = optim.Adam(self.parameters())
         
-    def load_model(self):
-        """Load a previously trained model"""
-        if self.recommender is None:
-            raise ValueError("Call prepare_data before loading model")
-        self.recommender.model = load_model(self.recommender.model)
+        n_samples = len(X_train_user)
         
+        self.train()  # Set model to training mode
+        for epoch in range(epochs):
+            total_loss = 0
+            
+            for i in range(0, n_samples, batch_size):
+                batch_users = torch.LongTensor(X_train_user[i:i+batch_size]).to(self.device)
+                batch_movies = torch.LongTensor(X_train_movie[i:i+batch_size]).to(self.device)
+                batch_ratings = torch.FloatTensor(y_train[i:i+batch_size]).to(self.device)
+                
+                optimizer.zero_grad()
+                predictions = self(batch_users, batch_movies).squeeze()
+                loss = criterion(predictions, batch_ratings)
+                loss.backward()
+                optimizer.step()
+                
+                total_loss += loss.item()
+            
+            print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/n_samples:.4f}")
+    
     def get_recommendations(self, user_id, n_recommendations=4):
         """Get movie recommendations for a user"""
-        if self.recommender is None:
-            raise ValueError("Model not prepared or trained")
-            
-        recommendations = self.recommender.get_recommendations_for_user(
-            user_id, 
-            n_recommendations=n_recommendations
-        )
+        self.eval()  # Set model to evaluation mode
         
-        # Format recommendations to match KNN output structure
+        if user_id not in self.user_to_idx:
+            return []
+            
+        user_idx = self.user_to_idx[user_id]
+        user_tensor = torch.LongTensor([user_idx] * len(self.movie_ids)).to(self.device)
+        movie_tensor = torch.LongTensor(range(len(self.movie_ids))).to(self.device)
+        
+        with torch.no_grad():
+            predictions = self(user_tensor, movie_tensor).cpu().numpy()
+        
+        # Get top N recommendations
+        movie_indices = np.argsort(predictions.flatten())[-n_recommendations:][::-1]
+        
+        # Format recommendations
         user_summary = {
             'UserId': user_id,
-            'SimilarityScore': 1.0,  
+            'SimilarityScore': 1.0,
             'Recommendations': []
         }
         
-        for rec in recommendations:
+        for idx in movie_indices:
+            movie_id = self.movie_ids[idx]
+            movie_info = self.data_movies[self.data_movies['MovieID'] == movie_id].iloc[0]
+            avg_rating = self.data_ratings[self.data_ratings['MovieID'] == movie_id]['Rating'].mean()
+            
             user_summary['Recommendations'].append({
-                'Title': rec['Title'],
-                'Genres': rec['Genres'],
-                'UserRating': rec['PredictedRating'],
-                'AverageRating': self.data_ratings[
-                    self.data_ratings['MovieID'] == rec['MovieID']
-                ]['Rating'].mean()
+                'Title': movie_info['Title'],
+                'Genres': movie_info['Genres'],
+                'UserRating': float(predictions[idx] * 5),  # Convert back to 5-star scale
+                'AverageRating': float(avg_rating)
             })
             
         return [user_summary]
+        
+    def save_model(self, path='ncf_model.pth'):
+        """Save the trained model"""
+        torch.save(self.state_dict(), path)
+        
+    def load_model(self, path='ncf_model.pth'):
+        """Load a previously trained model"""
+        if os.path.exists(path):
+            self.load_state_dict(torch.load(path))
+            return True
+        return False
+
 
 class MovieRecommender:
     def __init__(self, ratings_df, movies_df):

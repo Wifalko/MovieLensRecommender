@@ -27,13 +27,14 @@ def get_recommendations_knn(user_id=9999, neighbours_amount=4):
 
 def get_recommendations_ncf(user_id=9999, n_recommendations=4):
     user_data, data_ratings, data_movies, _ = load_data()
-
+    
+    # Initialize NCF with data
     recommender = NCF(data_ratings, data_movies)
     recommender.prepare_data(user_data)
     
-    try:
-        recommender.load_model()
-    except:
+    # Try to load existing model, train if not available
+    if not recommender.load_model():
+        print("Training new NCF model...")
         recommender.train(epochs=10)
         recommender.save_model()
     
