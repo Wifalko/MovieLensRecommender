@@ -147,7 +147,18 @@
 </head>
 <body>
     <h1>Lista filmów</h1>
-    
+
+    <div id="userInfo" style="margin-bottom: 20px; display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <strong>Aktualny użytkownik: </strong>
+                <span id="userName"></span>
+                <span id="userDescription" style="color: #666; margin-left: 10px;"></span>
+            </div>
+            <a href="/select_user" class="select-btn" style="background-color: #28a745;">Zmień użytkownika</a>
+        </div>
+    </div>
+
     <nav>
         <a href="/recommendations">Polecane Filmy</a>
     </nav>
@@ -171,6 +182,7 @@
     </table>
 
     <script>
+        
         async function loadSavedRatings() {
             try {
                 const response = await fetch('/get_saved_ratings');
@@ -338,8 +350,29 @@
             const row = button.closest('tr');
             row.remove();
         }
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('/get_current_user');
+                if (!response.ok) {
+                    window.location.href = '/select_user';
+                    return;
+                }
+                
+                const user = await response.json();
+                document.getElementById('userName').textContent = user.name;
+                document.getElementById('userDescription').textContent = user.description;
+                document.getElementById('userInfo').style.display = 'block';
+            } catch (error) {
+                console.error('Błąd podczas ładowania informacji o użytkowniku:', error);
+                window.location.href = '/select_user';
+            }
+        }
 
-        document.addEventListener('DOMContentLoaded', loadSavedRatings);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCurrentUser();
+            loadSavedRatings();
+        });
+
     </script>
 </body>
 </html>

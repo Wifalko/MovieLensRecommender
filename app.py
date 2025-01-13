@@ -1,24 +1,293 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from DataReader import file_reader
 from datetime import datetime
 import pandas as pd
 import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 import os
 import json
-from data_processing import get_recommendations
 
+app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'
+
+USERS_FILE = 'users.json'
+USER_RATINGS_DIR = 'user_ratings'
 
 reader = file_reader()
 data_ratings, data_movies, data_users = reader.run()
-
 movies = data_movies
-user_ratings = pd.DataFrame(columns=["UserID", "MovieID", "Rating", "Timestamp", "Title", "Genres"])
 
-app = Flask(__name__)
+def load_users():
+    try:
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=2)
+
+def get_user_ratings_file(username):
+    return f'{USER_RATINGS_DIR}/{username}_ratings.json'
+
+def load_user_ratings(username):
+    try:
+        with open(get_user_ratings_file(username), 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
+def save_user_ratings(username, ratings):
+    os.makedirs(USER_RATINGS_DIR, exist_ok=True)
+    with open(get_user_ratings_file(username), 'w') as f:
+        json.dump(ratings, f, indent=2)
+
+def get_user_movie_matrix(user_ratings_df):
+    """Create a user-movie rating matrix from all ratings"""
+    # Combine user ratings with existing ratings
+    all_ratings = pd.concat([
+        data_ratings[['UserID', 'MovieID', 'Rating']],
+        user_ratings_df[['UserID', 'MovieID', 'Rating']]
+    ])
+    
+    # Create the user-movie matrix
+    user_movie_matrix = all_ratings.pivot(
+        index='UserID', 
+        columns='MovieID', 
+        values='Rating'
+    ).fillna(0)
+    
+    return user_movie_matrix
+
+def get_similar_users(user_ratings_df, n_similar=5):
+    """Find similar users based on rating patterns"""
+    # Create user-movie matrix
+    user_movie_matrix = get_user_movie_matrix(user_ratings_df)
+    
+    # Calculate similarity between all users
+    user_similarity = cosine_similarity(user_movie_matrix)
+    
+    # Convert to DataFrame for easier manipulation
+    user_similarity_df = pd.DataFrame(
+        user_similarity,
+        index=user_movie_matrix.index,
+        columns=user_movie_matrix.index
+    )
+    
+    # Get current user's ID (assuming it's the last one added)
+    current_user_id = user_ratings_df['UserID'].iloc[0]
+    
+    # Get similar users (excluding current user)
+    similar_users = user_similarity_df[current_user_id].sort_values(ascending=False)[1:n_similar+1]
+    
+    return similar_users
+
+def get_recommendations(model_type, user_ratings_df, username, n_recommendations=5):
+    """Get movie recommendations for the current user"""
+    if len(user_ratings_df) == 0:
+        return []
+        
+    # Find similar users
+    similar_users = get_similar_users(user_ratings_df)
+    
+    recommendations = []
+    
+    # For each similar user
+    for user_id, similarity_score in similar_users.items():
+        # Get movies rated highly by this user
+        user_movies = data_ratings[
+            (data_ratings['UserID'] == user_id) & 
+            (data_ratings['Rating'] >= 4.0)
+        ]
+        
+        # Exclude movies already rated by current user
+        rated_movies = set(user_ratings_df['MovieID'].values)
+        user_movies = user_movies[~user_movies['MovieID'].isin(rated_movies)]
+        
+        # Get top rated movies
+        top_movies = user_movies.nlargest(n_recommendations, 'Rating')
+        
+        # Prepare recommendations
+        user_recs = {
+            'UserId': int(user_id),
+            'SimilarityScore': float(similarity_score),
+            'Recommendations': []
+        }
+        
+        for _, movie in top_movies.iterrows():
+            movie_info = movies[movies['MovieID'] == movie['MovieID']].iloc[0]
+            avg_rating = data_ratings[data_ratings['MovieID'] == movie['MovieID']]['Rating'].mean()
+            
+            user_recs['Recommendations'].append({
+                'MovieID': int(movie['MovieID']),
+                'Title': movie_info['Title'],
+                'Genres': movie_info['Genres'],
+                'UserRating': float(movie['Rating']),
+                'AverageRating': float(avg_rating)
+            })
+            
+        recommendations.append(user_recs)
+    
+    return recommendations
 
 @app.route('/')
 def index():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
     return render_template('index.html')
+
+@app.route('/select_user')
+def select_user():
+    users = load_users()
+    return render_template('select_user.html', users=users)
+
+@app.route('/create_user', methods=['POST'])
+def create_user():
+    data = request.json
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+        
+    users = load_users()
+    
+    if username in users:
+        return jsonify({'error': 'Username already exists'}), 400
+    
+    users[username] = {
+        'name': username,
+        'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    save_users(users)
+    session['username'] = username
+    
+    return jsonify({
+        'success': True,
+        'username': username
+    })
+
+@app.route('/switch_user', methods=['POST'])
+def switch_user():
+    data = request.json
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+        
+    users = load_users()
+    
+    if username not in users:
+        return jsonify({'error': 'User does not exist'}), 404
+    
+    session['username'] = username
+    return jsonify({
+        'success': True,
+        'username': username
+    })
+
+@app.route('/get_current_user')
+def get_current_user():
+    username = session.get('username')
+    if not username:
+        return jsonify({'error': 'No user selected'}), 404
+    
+    users = load_users()
+    if username not in users:
+        return jsonify({'error': 'Invalid user'}), 404
+        
+    return jsonify({
+        'username': username,
+        'created_at': users[username]['created_at']
+    })
+
+@app.route('/get_users')
+def get_users():
+    users = load_users()
+    return jsonify(users)
+
+@app.route('/rate', methods=['POST'])
+def rate_movie():
+    username = session.get('username')
+    if not username:
+        return jsonify({'error': 'No user selected'}), 401
+    
+    data = request.json
+    movie_id = data.get('movieId')
+    rating = data.get('rating')
+    
+    if not movie_id or not rating:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    movie = movies[movies['MovieID'] == movie_id].iloc[0]
+    
+    ratings = load_user_ratings(username)
+    
+    # Update existing rating or add new one
+    rating_exists = False
+    for r in ratings:
+        if r['MovieID'] == movie_id:
+            r['Rating'] = float(rating)
+            rating_exists = True
+            break
+    
+    if not rating_exists:
+        ratings.append({
+            "UserID": 9999,  # Default UserID for new ratings
+            "MovieID": movie_id,
+            "Rating": float(rating),
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Title": movie["Title"],
+            "Genres": movie["Genres"]
+        })
+    
+    save_user_ratings(username, ratings)
+    return jsonify({'success': True})
+
+@app.route('/get_saved_ratings')
+def get_saved_ratings():
+    username = session.get('username')
+    if not username:
+        return jsonify([])
+    return jsonify(load_user_ratings(username))
+
+@app.route('/delete_rating/<int:movie_id>', methods=['DELETE'])
+def delete_rating(movie_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({'error': 'No user selected'}), 401
+
+    try:
+        ratings = load_user_ratings(username)
+        ratings = [rating for rating in ratings if rating['MovieID'] != movie_id]
+        save_user_ratings(username, ratings)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/recommendations')
+def recommendations():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+    
+    username = session.get('username')
+    model_type = request.args.get('model', 'knn')
+    
+    # Load current user's ratings
+    user_ratings = load_user_ratings(username)
+    
+    # If user has no ratings, we can't make recommendations
+    if not user_ratings:
+        return render_template('recommendations.html', recommended_movies=[], no_ratings=True)
+    
+    # Convert user ratings to DataFrame
+    user_ratings_df = pd.DataFrame(user_ratings)
+    
+    # Get recommendations for the current user
+    recommended_movies = get_recommendations(model_type, user_ratings_df, username)
+    
+    return render_template('recommendations.html', recommended_movies=recommended_movies, no_ratings=False)
 
 @app.route('/search_suggestions')
 def search_suggestions():
@@ -44,7 +313,7 @@ def search_suggestions():
 def get_movie(movie_id):
     movie = movies[movies['MovieID'] == movie_id]
     if len(movie) == 0:
-        return jsonify({'error': 'Film nie został znaleziony'}), 404
+        return jsonify({'error': 'Movie not found'}), 404
 
     avg_rating = data_ratings[data_ratings['MovieID'] == movie_id]['Rating'].mean()
     
@@ -57,95 +326,5 @@ def get_movie(movie_id):
     
     return jsonify(movie_data)
 
-@app.route('/rate', methods=['POST'])
-def rate_movie():
-    data = request.json
-    movie_id = data.get('movieId')
-    rating = data.get('rating')
-    
-    if not movie_id or not rating:
-        return jsonify({'error': 'Brak wymaganych pól'}), 400
-    
-    movie = movies[movies['MovieID'] == movie_id].iloc[0]
-    
-    new_rating = {
-        "UserID": 9999,  
-        "MovieID": movie_id,
-        "Rating": float(rating),
-        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Title": movie["Title"],
-        "Genres": movie["Genres"]
-    }
-    
-    global user_ratings
-    user_ratings = pd.concat([user_ratings, pd.DataFrame([new_rating])], ignore_index=True)
-    save_ratings_to_file()  
-    
-    return jsonify({'success': True})
-
-
-
-@app.route('/get_saved_ratings')
-def get_saved_ratings():
-    try:
-        if os.path.exists('user_ratings.json'):
-            with open('user_ratings.json', 'r', encoding='utf-8') as file:
-                ratings = json.load(file)
-            return jsonify(ratings)
-        return jsonify([])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
-@app.route('/delete_rating/<int:movie_id>', methods=['DELETE'])
-def delete_rating(movie_id):
-    try:
-        if os.path.exists('user_ratings.json'):
-            with open('user_ratings.json', 'r', encoding='utf-8') as file:
-                ratings = json.load(file)
-            
-            # Filtruj oceny, usuwając ocenę dla danego filmu
-            ratings = [rating for rating in ratings if rating['MovieID'] != movie_id]
-            
-            # Zapisz zaktualizowaną listę ocen
-            with open('user_ratings.json', 'w', encoding='utf-8') as file:
-                json.dump(ratings, file, indent=2)
-                
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Plik z ocenami nie istnieje'}), 404
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/recommendations')
-def recommendations():
-    # Możesz dodać parametr w URL, który model chcesz użyć
-    model_type = request.args.get('model', 'knn')  # domyślnie użyj KNN
-    recommended_movies = get_recommendations(model_type)
-    return render_template('recommendations.html', recommended_movies=recommended_movies)
-
-# Albo możesz stworzyć osobne endpointy dla każdego modelu
-@app.route('/recommendations/knn')
-def knn_recommendations():
-    recommended_movies = get_recommendations('knn')
-    return render_template('recommendations.html', recommended_movies=recommended_movies)
-
-@app.route('/recommendations/ncf')
-def ncf_recommendations():
-    recommended_movies = get_recommendations('ncf')
-    return render_template('recommendations.html', recommended_movies=recommended_movies)
-
-RATINGS_FILE = 'user_ratings.json'
-
-def save_ratings_to_file():
-    if not user_ratings.empty:
-        user_ratings.to_json(RATINGS_FILE, orient='records', date_format='iso')
-
-def load_ratings_from_file():
-    global user_ratings
-    if os.path.exists(RATINGS_FILE):
-        user_ratings = pd.read_json(RATINGS_FILE)
-
-
 if __name__ == '__main__':
-    load_ratings_from_file()
     app.run(debug=True)

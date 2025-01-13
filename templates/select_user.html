@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select or Create User</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .create-user-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .user-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .user-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .user-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .user-created {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+            width: 200px;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="create-user-section">
+            <h2>Create New User</h2>
+            <div>
+                <input type="text" id="newUsername" placeholder="Enter username">
+                <button onclick="createUser()" class="btn">Create User</button>
+                <div id="createError" class="error-message"></div>
+            </div>
+        </div>
+
+        <div>
+            <h2>Select Existing User</h2>
+            <div id="userGrid" class="user-grid">
+                <!-- Users will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadUsers() {
+            try {
+                const response = await fetch('/get_users');
+                const users = await response.json();
+                const userGrid = document.getElementById('userGrid');
+                userGrid.innerHTML = '';
+                
+                Object.entries(users).forEach(([username, user]) => {
+                    const card = document.createElement('div');
+                    card.className = 'user-card';
+                    card.innerHTML = `
+                        <div class="user-name">${user.name}</div>
+                        <div class="user-created">Created: ${user.created_at}</div>
+                        <button onclick="switchUser('${username}')" class="btn">Select</button>
+                    `;
+                    userGrid.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        async function createUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const errorDiv = document.getElementById('createError');
+            
+            if (!username) {
+                errorDiv.textContent = 'Username is required';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/create_user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error creating user:', error);
+                errorDiv.textContent = 'Error creating user';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function switchUser(username) {
+            try {
+                const response = await fetch('/switch_user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username })
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'Error switching user');
+                }
+            } catch (error) {
+                console.error('Error switching user:', error);
+                alert('Error switching user');
+            }
+        }
+
+        // Load users when page loads
+        document.addEventListener('DOMContentLoaded', loadUsers);
+    </script>
+</body>
+</html>
