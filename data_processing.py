@@ -1,10 +1,9 @@
 from DataReader import file_reader
 import pandas as pd
 import json
-from models import KNNRecommender, NCF  # zakładając że mamy oba modele w models.py
+from models import KNNRecommender, NCF  
 
 def load_data():
-    """Ładuje wszystkie potrzebne dane"""
     with open('user_ratings.json', 'r', encoding='utf-8') as file:
         user_input_data = json.load(file)
 
@@ -25,17 +24,14 @@ def get_recommendations_knn(user_id=9999, neighbours_amount=4):
     
     return recommender.get_recommendations(user_id, neighbours_amount)
 
-def get_recommendations_ncf(user_id=9999, n_recommendations=4):
-    user_data, data_ratings, data_movies, _ = load_data()
-    
-    # Initialize NCF with data
+def get_recommendations_ncf(user_id=9999, n_recommendations=4, user_data=None):
+    _, data_ratings, data_movies, _ = load_data()
+
     recommender = NCF(data_ratings, data_movies)
-    recommender.prepare_data(user_data)
-    
-    # Try to load existing model, train if not available
+
     if not recommender.load_model():
         print("Training new NCF model...")
-        recommender.train(epochs=10)
+        recommender.train_model(user_data=user_data, epochs=10)
         recommender.save_model()
     
     return recommender.get_recommendations(user_id, n_recommendations)

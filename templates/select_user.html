@@ -4,33 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Select or Create User</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            padding-top: 20px;
         }
-        
         .container {
             display: flex;
             flex-direction: column;
             gap: 30px;
         }
-        
         .create-user-section {
             background-color: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
             border: 1px solid #ddd;
         }
-        
         .user-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
         }
-        
         .user-card {
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -39,24 +33,20 @@
             cursor: pointer;
             transition: transform 0.2s;
         }
-        
         .user-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        
         .user-name {
             font-size: 1.2em;
             font-weight: bold;
             margin-bottom: 10px;
         }
-        
         .user-created {
             color: #666;
             margin-bottom: 15px;
             font-size: 0.9em;
         }
-        
         .btn {
             background-color: #007bff;
             color: white;
@@ -67,11 +57,9 @@
             text-decoration: none;
             display: inline-block;
         }
-        
         .btn:hover {
             background-color: #0056b3;
         }
-        
         input[type="text"] {
             padding: 8px;
             border: 1px solid #ddd;
@@ -79,7 +67,6 @@
             margin-right: 10px;
             width: 200px;
         }
-        
         .error-message {
             color: #dc3545;
             margin-top: 10px;
@@ -113,7 +100,7 @@
                 const users = await response.json();
                 const userGrid = document.getElementById('userGrid');
                 userGrid.innerHTML = '';
-                
+
                 Object.entries(users).forEach(([username, user]) => {
                     const card = document.createElement('div');
                     card.className = 'user-card';
@@ -132,13 +119,13 @@
         async function createUser() {
             const username = document.getElementById('newUsername').value.trim();
             const errorDiv = document.getElementById('createError');
-            
+
             if (!username) {
                 errorDiv.textContent = 'Username is required';
                 errorDiv.style.display = 'block';
                 return;
             }
-            
+
             try {
                 const response = await fetch('/create_user', {
                     method: 'POST',
@@ -147,9 +134,9 @@
                     },
                     body: JSON.stringify({ username })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     window.location.href = '/';
                 } else {
@@ -172,7 +159,7 @@
                     },
                     body: JSON.stringify({ username })
                 });
-                
+
                 if (response.ok) {
                     window.location.href = '/';
                 } else {
@@ -185,7 +172,6 @@
             }
         }
 
-        // Load users when page loads
         document.addEventListener('DOMContentLoaded', loadUsers);
     </script>
 </body>

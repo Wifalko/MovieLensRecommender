@@ -4,48 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Podobni Użytkownicy</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+            padding-top: 20px;
         }
-        
         .user-section {
             margin-bottom: 40px;
             border: 1px solid #ddd;
             border-radius: 8px;
             overflow: hidden;
         }
-        
         .user-header {
             background-color: #f8f9fa;
             padding: 15px;
             border-bottom: 1px solid #ddd;
         }
-        
         .similarity-score {
             color: #666;
             font-size: 0.9em;
         }
-        
         table {
             width: 100%;
             border-collapse: collapse;
         }
-        
         th, td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
-        
         th {
             background-color: #f8f9fa;
             font-weight: bold;
         }
-        
         .rating {
             background-color: #007bff;
             color: white;
@@ -53,16 +44,13 @@
             border-radius: 4px;
             display: inline-block;
         }
-        
         .movie-title {
             font-weight: bold;
         }
-        
         .movie-genres {
             color: #666;
             font-size: 0.9em;
         }
-        
         .back-link {
             display: inline-block;
             margin-top: 20px;
@@ -72,54 +60,60 @@
             text-decoration: none;
             border-radius: 4px;
         }
-        
         .back-link:hover {
             background-color: #0056b3;
+        }
+        .model-selector {
+            margin-top: 20px;
+        }
+        .model-btn {
+            margin-right: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>Podobni Użytkownicy</h1>
-    
-    {% for user in recommended_movies %}
-    <div class="user-section">
-        <div class="user-header">
-            <h2>Użytkownik nr {{ user.UserId }}</h2>
-            <div class="similarity-score">
-                Podobieństwo: {{ "%.1f"|format(user.SimilarityScore * 100) }}%
+    <div class="container">
+        <h1 class="mb-4">Podobni Użytkownicy</h1>
+        {% for user in recommended_movies %}
+        <div class="user-section">
+            <div class="user-header">
+                <h2>Użytkownik nr {{ user.UserId }}</h2>
+                <div class="similarity-score">
+                    Podobieństwo: {{ "%.1f"|format(user.SimilarityScore * 100) }}%
+                </div>
             </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Film</th>
+                        <th>Ocena użytkownika</th>
+                        <th>Średnia ocena</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movie in user.Recommendations %}
+                    <tr>
+                        <td>
+                            <div class="movie-title">{{ movie.Title }}</div>
+                            <div class="movie-genres">{{ movie.Genres }}</div>
+                        </td>
+                        <td>
+                            <span class="rating">{{ "%.1f"|format(movie.UserRating) }}</span>
+                        </td>
+                        <td>
+                            <span class="rating">{{ "%.1f"|format(movie.AverageRating) }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Film</th>
-                    <th>Ocena użytkownika</th>
-                    <th>Średnia ocena</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for movie in user.Recommendations %}
-                <tr>
-                    <td>
-                        <div class="movie-title">{{ movie.Title }}</div>
-                        <div class="movie-genres">{{ movie.Genres }}</div>
-                    </td>
-                    <td>
-                        <span class="rating">{{ "%.1f"|format(movie.UserRating) }}</span>
-                    </td>
-                    <td>
-                        <span class="rating">{{ "%.1f"|format(movie.AverageRating) }}</span>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% endfor %}
+        <div class="model-selector">
+            <a href="/recommendations?model=knn" class="btn model-btn">KNN Recommendations</a>
+            <a href="/recommendations?model=ncf" class="btn model-btn">Neural Recommendations</a>
+        </div>
+        <a href="/" class="back-link">Powrót do Strony Głównej</a>
     </div>
-    {% endfor %}
-    <div class="model-selector">
-        <a href="/recommendations?model=knn" class="model-btn">KNN Recommendations</a>
-        <a href="/recommendations?model=ncf" class="model-btn">Neural Recommendations</a>
-    </div>
-    <a href="/" class="back-link">Powrót do Strony Głównej</a>
 </body>
 </html>

@@ -38,5 +38,13 @@
     "Timestamp": "2025-01-13 22:22:19",
     "Title": "Klute (1971)",
     "Genres": "Drama|Mystery"
+  },
+  {
+    "UserID": 9999,
+    "MovieID": 124,
+    "Rating": 3.0,
+    "Timestamp": "2025-01-13 23:43:36",
+    "Title": "Star Maker, The (Uomo delle stelle, L') (1995)",
+    "Genres": "Drama"
   }
 ]

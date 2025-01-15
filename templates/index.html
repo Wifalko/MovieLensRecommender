@@ -4,35 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lista filmów</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+            padding-top: 20px;
         }
-        
-        nav {
-            margin-bottom: 20px;
-        }
-        
-        nav a {
-            margin-right: 15px;
-            text-decoration: none;
-            color: #007bff;
-            font-weight: bold;
-        }
-
-        nav a:hover {
-            text-decoration: underline;
-        }
-        
         .search-container {
             position: relative;
             margin-bottom: 20px;
-            width: 100%;
         }
-        
         #searchInput {
             width: 100%;
             padding: 12px;
@@ -40,7 +20,6 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-        
         .suggestions {
             position: absolute;
             top: 100%;
@@ -55,48 +34,25 @@
             z-index: 1000;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
         .suggestion-item {
             padding: 10px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
         }
-        
         .suggestion-item:hover {
             background-color: #f5f5f5;
         }
-        
         .suggestion-item:last-child {
             border-bottom: none;
         }
-        
         .suggestion-title {
             font-weight: bold;
             margin-bottom: 4px;
         }
-        
         .suggestion-genre {
             font-size: 0.8em;
             color: #666;
         }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        th {
-            background-color: #f5f5f5;
-            font-weight: bold;
-        }
-        
         .remove-btn {
             padding: 5px 10px;
             background-color: #dc3545;
@@ -106,16 +62,13 @@
             cursor: pointer;
             margin-left: 10px;
         }
-        
         .remove-btn:hover {
             background-color: #c82333;
         }
-
         .actions-cell {
             display: flex;
             align-items: center;
         }
-
         .current-rating {
             background-color: #28a745;
             color: white;
@@ -123,14 +76,12 @@
             border-radius: 4px;
             margin-right: 10px;
         }
-
         .rating-select {
             padding: 5px;
             margin-right: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-
         .rate-btn {
             padding: 5px 10px;
             background-color: #007bff;
@@ -139,55 +90,51 @@
             border-radius: 4px;
             cursor: pointer;
         }
-
         .rate-btn:hover {
             background-color: #0056b3;
         }
     </style>
 </head>
 <body>
-    <h1>Lista filmów</h1>
-
-    <div id="userInfo" style="margin-bottom: 20px; display: none;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <strong>Aktualny użytkownik: </strong>
-                <span id="userName"></span>
-                <span id="userDescription" style="color: #666; margin-left: 10px;"></span>
+    <div class="container">
+        <h1 class="mb-4">Lista filmów</h1>
+        <div id="userInfo" style="margin-bottom: 20px; display: none;">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <strong>Aktualny użytkownik: </strong>
+                    <span id="userName"></span>
+                    <span id="userDescription" style="color: #666; margin-left: 10px;"></span>
+                </div>
+                <a href="/select_user" class="btn btn-success">Zmień użytkownika</a>
             </div>
-            <a href="/select_user" class="select-btn" style="background-color: #28a745;">Zmień użytkownika</a>
         </div>
+        <nav>
+            <a href="/recommendations" class="btn btn-primary mb-3">Polecane Filmy</a>
+        </nav>
+        <div class="search-container">
+            <input type="text" id="searchInput" class="form-control" placeholder="Wyszukaj film...">
+            <div id="suggestions" class="suggestions" style="display: none;"></div>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tytuł</th>
+                    <th>Gatunki</th>
+                    <th>Średnia ocena</th>
+                    <th>Twoja ocena</th>
+                </tr>
+            </thead>
+            <tbody id="moviesList">
+            </tbody>
+        </table>
     </div>
-
-    <nav>
-        <a href="/recommendations">Polecane Filmy</a>
-    </nav>
-    
-    <div class="search-container">
-        <input type="text" id="searchInput" placeholder="Wyszukaj film...">
-        <div id="suggestions" class="suggestions" style="display: none;"></div>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>Tytuł</th>
-                <th>Gatunki</th>
-                <th>Średnia ocena</th>
-                <th>Twoja ocena</th>
-            </tr>
-        </thead>
-        <tbody id="moviesList">
-        </tbody>
-    </table>
 
     <script>
-        
         async function loadSavedRatings() {
             try {
                 const response = await fetch('/get_saved_ratings');
                 const ratings = await response.json();
-                
+
                 for (const rating of ratings) {
                     const movieResponse = await fetch(`/get_movie/${rating.MovieID}`);
                     const movieDetails = await movieResponse.json();
@@ -202,18 +149,18 @@
             const tbody = document.getElementById('moviesList');
             const row = document.createElement('tr');
             row.setAttribute('data-movie-id', movie.MovieID);
-            
+
             const ratingOptions = Array.from({length: 10}, (_, i) => (i + 1) * 0.5)
                 .map(value => `<option value="${value}" ${currentRating === value ? 'selected' : ''}>${value}</option>`)
                 .join('');
-            
+
             row.innerHTML = `
                 <td>${movie.Title}</td>
                 <td>${movie.Genres}</td>
                 <td>${movie.AverageRating ? movie.AverageRating.toFixed(1) : 'Brak ocen'}</td>
                 <td class="actions-cell">
-                    ${currentRating ? 
-                        `<span class="current-rating">Twoja ocena: ${currentRating}</span>` : 
+                    ${currentRating ?
+                        `<span class="current-rating">Twoja ocena: ${currentRating}</span>` :
                         ''}
                     <select class="rating-select">
                         <option value="">Wybierz ocenę</option>
@@ -225,32 +172,32 @@
                     <button class="remove-btn" onclick="removeMovie(this)">Usuń</button>
                 </td>
             `;
-            
+
             tbody.appendChild(row);
         }
 
         let searchTimeout;
         const searchInput = document.getElementById('searchInput');
         const suggestionsDiv = document.getElementById('suggestions');
-        
+
         searchInput.addEventListener('input', function(e) {
             clearTimeout(searchTimeout);
             const query = e.target.value;
-            
+
             if (query.length < 2) {
                 suggestionsDiv.style.display = 'none';
                 return;
             }
-            
+
             searchTimeout = setTimeout(() => fetchSuggestions(query), 300);
         });
-        
+
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.search-container')) {
                 suggestionsDiv.style.display = 'none';
             }
         });
-        
+
         async function fetchSuggestions(query) {
             try {
                 const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
@@ -260,15 +207,15 @@
                 console.error('Błąd podczas pobierania sugestii:', error);
             }
         }
-        
+
         function displaySuggestions(suggestions) {
             suggestionsDiv.innerHTML = '';
-            
+
             if (suggestions.length === 0) {
                 suggestionsDiv.style.display = 'none';
                 return;
             }
-            
+
             suggestions.forEach(movie => {
                 const div = document.createElement('div');
                 div.className = 'suggestion-item';
@@ -279,20 +226,20 @@
                 div.onclick = () => selectMovie(movie);
                 suggestionsDiv.appendChild(div);
             });
-            
+
             suggestionsDiv.style.display = 'block';
         }
-        
+
         async function selectMovie(movie) {
             searchInput.value = '';
             suggestionsDiv.style.display = 'none';
-            
+
             const existingMovie = document.querySelector(`tr[data-movie-id="${movie.MovieID}"]`);
             if (existingMovie) {
                 alert('Ten film jest już na liście!');
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/get_movie/${movie.MovieID}`);
                 const movieDetails = await response.json();
@@ -301,17 +248,17 @@
                 console.error('Błąd podczas pobierania szczegółów filmu:', error);
             }
         }
-        
+
         async function rateMovie(movieId, button) {
             const row = button.closest('tr');
             const ratingSelect = row.querySelector('.rating-select');
             const rating = ratingSelect.value;
-            
+
             if (!rating) {
                 alert('Wybierz ocenę!');
                 return;
             }
-            
+
             try {
                 const response = await fetch('/rate', {
                     method: 'POST',
@@ -323,7 +270,7 @@
                         rating: parseFloat(rating)
                     })
                 });
-                
+
                 if (response.ok) {
                     const currentRatingSpan = row.querySelector('.current-rating');
                     if (currentRatingSpan) {
@@ -345,11 +292,12 @@
                 alert('Błąd podczas zapisywania oceny');
             }
         }
-        
+
         function removeMovie(button) {
             const row = button.closest('tr');
             row.remove();
         }
+
         async function loadCurrentUser() {
             try {
                 const response = await fetch('/get_current_user');
@@ -357,7 +305,7 @@
                     window.location.href = '/select_user';
                     return;
                 }
-                
+
                 const user = await response.json();
                 document.getElementById('userName').textContent = user.name;
                 document.getElementById('userDescription').textContent = user.description;
@@ -372,7 +320,6 @@
             loadCurrentUser();
             loadSavedRatings();
         });
-
     </script>
 </body>
 </html>

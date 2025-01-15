@@ -15,15 +15,18 @@ data_ratings, data_movies, data_users = reader.run()
 
 class KNNRecommender:
     """
-    Klasa implementująca system rekomendacji oparty na algorytmie k-najbliższych sąsiadów.
+    Implementation of a recommendation system based on k-nearest neighbors algorithm.
+    Uses similarity between users to generate movie recommendations.
     """
     def __init__(self, data_ratings: pd.DataFrame, data_movies: pd.DataFrame):
         """
-        Inicjalizacja rekomendatora KNN.
+        Initialize the KNN recommender.
         
         Args:
-            data_ratings: DataFrame z ocenami filmów
-            data_movies: DataFrame z informacjami o filmach
+            data_ratings (pd.DataFrame): DataFrame containing movie ratings by users
+                required columns: UserID, MovieID, Rating
+            data_movies (pd.DataFrame): DataFrame containing movie information
+                required columns: MovieID, Title, Genres
         """
         self.data_ratings = data_ratings
         self.data_movies = data_movies
@@ -33,10 +36,14 @@ class KNNRecommender:
 
     def prepare_data(self, user_data: pd.DataFrame) -> None:
         """
-        Przygotowuje dane do treningu modelu KNN.
+        Prepares data for KNN model training by creating a user-movie matrix.
         
         Args:
-            user_data: DataFrame z ocenami użytkownika
+            user_data (pd.DataFrame): DataFrame containing additional user ratings
+                must have the same columns as data_ratings
+                
+        Returns:
+            None - results are stored in self.user_to_movie_df
         """
         key_values = pd.merge(self.data_ratings, self.data_movies, on='MovieID', how='inner')
         key_value = pd.concat([key_values, user_data], ignore_index=True)
@@ -50,11 +57,14 @@ class KNNRecommender:
 
     def train(self, metric: str = 'cosine', algorithm: str = 'brute') -> None:
         """
-        Trenuje model KNN na przygotowanych danych.
+        Trains the KNN model on the prepared data.
         
         Args:
-            metric: metryka odległości używana przez KNN
-            algorithm: algorytm używany do znajdowania sąsiadów
+            metric (str): Distance metric used by KNN (default: 'cosine')
+            algorithm (str): Algorithm used for finding neighbors (default: 'brute')
+                
+        Returns:
+            None - trained model is stored in self.knn_model
         """
         user_to_movie_sparse_df = csr_matrix(self.user_to_movie_df.values)
         self.knn_model = NearestNeighbors(metric=metric, algorithm=algorithm)
@@ -62,14 +72,17 @@ class KNNRecommender:
 
     def get_recommendations(self, user_id: int, neighbours_amount: int = 4):
         """
-        Generuje rekomendacje dla określonego użytkownika.
+        Generates recommendations for a specific user.
         
         Args:
-            user_id: ID użytkownika
-            neighbours_amount: liczba sąsiadów do znalezienia
+            user_id (int): ID of the user to generate recommendations for
+            neighbours_amount (int): Number of neighbors to find (default: 4)
             
         Returns:
-            Lista rekomendacji pogrupowanych według podobnych użytkowników
+            list: List of recommendations grouped by similar users, each containing:
+                - UserId: ID of the similar user
+                - SimilarityScore: Similarity score with the target user
+                - Recommendations: List of recommended movies with ratings and genres
         """
         user_row = self.user_to_movie_df.loc[user_id].values.reshape(1, -1)
         distances, indices = self.knn_model.kneighbors(user_row, n_neighbors=neighbours_amount)
@@ -117,80 +130,120 @@ class KNNRecommender:
     
 
 class NCF(nn.Module):
+    """
+    Neural Collaborative Filtering (NCF) model implementation.
+    Combines user and item embeddings with a neural network for rating prediction.
+    """
     def __init__(self, data_ratings, data_movies, latent_dim=16, layers=[32, 16, 8]):
         """
-        Initialize the NCF model with data
+        Initialize NCF model
         
         Args:
-            data_ratings: DataFrame with ratings data
-            data_movies: DataFrame with movies data
-            latent_dim: dimension of the embedding layers
-            layers: list of layer sizes for the neural network
+            data_ratings (pd.DataFrame): DataFrame containing user ratings
+            data_movies (pd.DataFrame): DataFrame containing movie information
+            latent_dim (int): Dimension of embedding layers
+            layers (list): List of layer sizes for MLP
         """
+        super(NCF, self).__init__()
+        
         self.data_ratings = data_ratings
         self.data_movies = data_movies
-        self.recommender = None
         
-        # Get unique users and movies
-        self.user_ids = data_ratings['UserID'].unique()
-        self.movie_ids = data_movies['MovieID'].unique()
+        self.user_embedding = None
+        self.movie_embedding = None
+        self.fc_layers = None
+        self.output_layer = None
         
-        # Initialize the neural network
-        super(NCF, self).__init__()
-        self.user_embedding = nn.Embedding(len(self.user_ids), latent_dim)
-        self.movie_embedding = nn.Embedding(len(self.movie_ids), latent_dim)
+        self.latent_dim = latent_dim
+        self.layers = layers
         
-        # Create the fully connected layers
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+    def _init_model(self):
+        """
+        Initialize model layers based on prepared data.
+        Creates embedding layers and MLP layers with specified dimensions.
+        """
+        self.user_embedding = nn.Embedding(len(self.user_ids), self.latent_dim)
+        self.movie_embedding = nn.Embedding(len(self.movie_ids), self.latent_dim)
+
         self.fc_layers = nn.ModuleList()
-        input_dim = latent_dim * 2
-        for layer_size in layers:
+        input_dim = self.latent_dim * 2
+        
+        for layer_size in self.layers:
             self.fc_layers.append(nn.Linear(input_dim, layer_size))
             input_dim = layer_size
+            
         self.output_layer = nn.Linear(input_dim, 1)
         
-        # Create mappings for user and movie IDs
-        self.user_to_idx = {user_id: idx for idx, user_id in enumerate(self.user_ids)}
-        self.movie_to_idx = {movie_id: idx for idx, movie_id in enumerate(self.movie_ids)}
-        
-        # Set device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
-
+        
     def forward(self, user_indices, movie_indices):
+        """
+        Forward pass of the model.
+        
+        Args:
+            user_indices (torch.Tensor): Tensor of user IDs
+            movie_indices (torch.Tensor): Tensor of movie IDs
+            
+        Returns:
+            torch.Tensor: Predicted ratings (0-1 range)
+        """
         user_features = self.user_embedding(user_indices)
         movie_features = self.movie_embedding(movie_indices)
         x = torch.cat([user_features, movie_features], dim=-1)
+        
         for layer in self.fc_layers:
             x = nn.ReLU()(layer(x))
+            
         return torch.sigmoid(self.output_layer(x))
+    
+    def prepare_data(self, user_data=None):
+        """
+        Prepare data for training
         
-    def prepare_data(self, user_data):
-        """Prepare data for the NCF model by combining historical and user data"""
-        self.all_ratings = pd.concat([self.data_ratings, user_data], ignore_index=True)
+        Args:
+            user_data (pd.DataFrame, optional): Additional user ratings data
+            
+        Returns:
+            tuple: Train-test split of users, movies, and ratings
+        """
+        if user_data is not None:
+            self.all_ratings = pd.concat([self.data_ratings, user_data], ignore_index=True)
+        else:
+            self.all_ratings = self.data_ratings.copy()
         
-        # Update user and movie mappings
         self.user_ids = self.all_ratings['UserID'].unique()
         self.movie_ids = self.data_movies['MovieID'].unique()
+        
         self.user_to_idx = {user_id: idx for idx, user_id in enumerate(self.user_ids)}
         self.movie_to_idx = {movie_id: idx for idx, movie_id in enumerate(self.movie_ids)}
         
-        # Prepare training data
         users = self.all_ratings['UserID'].map(self.user_to_idx).values
         movies = self.all_ratings['MovieID'].map(self.movie_to_idx).values
-        ratings = self.all_ratings['Rating'].values / 5.0
+        ratings = self.all_ratings['Rating'].values / 5.0  # Normalize ratings
+
+        self._init_model()
         
         return train_test_split(users, movies, ratings, test_size=0.2, random_state=42)
+    
+    def train_model(self, user_data=None, epochs=10, batch_size=64):
+        """
+        Train the model
         
-    def train(self, epochs=10, batch_size=64):
-        """Train the NCF model"""
-        X_train_user, X_test_user, X_train_movie, X_test_movie, y_train, y_test = self.prepare_data()
+        Args:
+            user_data (pd.DataFrame, optional): Additional user ratings data
+            epochs (int): Number of training epochs
+            batch_size (int): Size of training batches
+        """
+        X_train_user, X_test_user, X_train_movie, X_test_movie, y_train, y_test = self.prepare_data(user_data)
         
         criterion = nn.MSELoss()
         optimizer = optim.Adam(self.parameters())
         
         n_samples = len(X_train_user)
         
-        self.train()  # Set model to training mode
+        self.train()  
         for epoch in range(epochs):
             total_loss = 0
             
@@ -207,26 +260,34 @@ class NCF(nn.Module):
                 
                 total_loss += loss.item()
             
-            print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/n_samples:.4f}")
+            avg_loss = total_loss / (n_samples // batch_size)
+            print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
     
     def get_recommendations(self, user_id, n_recommendations=4):
-        """Get movie recommendations for a user"""
-        self.eval()  # Set model to evaluation mode
+        """
+        Get movie recommendations for a user
+        
+        Args:
+            user_id (int): User ID to get recommendations for
+            n_recommendations (int): Number of recommendations to return
+            
+        Returns:
+            list: List containing recommendations with predicted ratings
+        """
+        self.eval()  
         
         if user_id not in self.user_to_idx:
             return []
-            
+        
         user_idx = self.user_to_idx[user_id]
         user_tensor = torch.LongTensor([user_idx] * len(self.movie_ids)).to(self.device)
         movie_tensor = torch.LongTensor(range(len(self.movie_ids))).to(self.device)
         
         with torch.no_grad():
             predictions = self(user_tensor, movie_tensor).cpu().numpy()
-        
-        # Get top N recommendations
+
         movie_indices = np.argsort(predictions.flatten())[-n_recommendations:][::-1]
         
-        # Format recommendations
         user_summary = {
             'UserId': user_id,
             'SimilarityScore': 1.0,
@@ -241,18 +302,18 @@ class NCF(nn.Module):
             user_summary['Recommendations'].append({
                 'Title': movie_info['Title'],
                 'Genres': movie_info['Genres'],
-                'UserRating': float(predictions[idx] * 5),  # Convert back to 5-star scale
+                'UserRating': float(predictions[idx] * 5),  
                 'AverageRating': float(avg_rating)
             })
-            
+        
         return [user_summary]
-        
+    
     def save_model(self, path='ncf_model.pth'):
-        """Save the trained model"""
+        """Save the model to a file"""
         torch.save(self.state_dict(), path)
-        
+    
     def load_model(self, path='ncf_model.pth'):
-        """Load a previously trained model"""
+        """Load the model from a file"""
         if os.path.exists(path):
             self.load_state_dict(torch.load(path))
             return True
@@ -260,6 +321,10 @@ class NCF(nn.Module):
 
 
 class MovieRecommender:
+    """
+    High-level movie recommender class that combines NCF model functionality
+    with data preprocessing and recommendation generation.
+    """
     def __init__(self, ratings_df, movies_df):
         self.ratings_df = ratings_df
         self.movies_df = movies_df
@@ -280,6 +345,12 @@ class MovieRecommender:
         self.model.to(self.device)
         
     def prepare_data(self):
+        """
+        Prepare data for model training
+        
+        Returns:
+            tuple: Train-test split of processed data
+        """
         users = self.ratings_df['UserID'].map(self.user_to_idx).values
         movies = self.ratings_df['MovieID'].map(self.movie_to_idx).values
         ratings = self.ratings_df['Rating'].values / 5.0  
@@ -291,6 +362,13 @@ class MovieRecommender:
         )
         
     def train(self, epochs=10, batch_size=64):
+        """
+        Train the recommendation model
+        
+        Args:
+            epochs (int): Number of training epochs
+            batch_size (int): Size of training batches
+        """
         X_train_user, X_test_user, X_train_movie, X_test_movie, y_train, y_test = self.prepare_data()
         
         criterion = nn.MSELoss()
@@ -318,6 +396,22 @@ class MovieRecommender:
             print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/n_samples:.4f}")
     
     def get_recommendations_for_user(self, user_id, n_recommendations=10):
+        """
+        Generates movie recommendations for a specific user using the trained model.
+        
+        Args:
+            user_id (int): ID of the user to generate recommendations for
+            n_recommendations (int): Number of movies to recommend (default: 10)
+            
+        Returns:
+            list: List of dictionaries containing recommended movies with:
+                - MovieID (int): ID of the recommended movie
+                - Title (str): Title of the movie
+                - Genres (str): Genres of the movie
+                - PredictedRating (float): Predicted rating for this user
+                
+        Returns empty list if user_id is not found in the training data.
+        """
         self.model.eval()
         if user_id not in self.user_to_idx:
             return []

@@ -44,14 +44,11 @@ def save_user_ratings(username, ratings):
         json.dump(ratings, f, indent=2)
 
 def get_user_movie_matrix(user_ratings_df):
-    """Create a user-movie rating matrix from all ratings"""
-    # Combine user ratings with existing ratings
     all_ratings = pd.concat([
         data_ratings[['UserID', 'MovieID', 'Rating']],
         user_ratings_df[['UserID', 'MovieID', 'Rating']]
     ])
     
-    # Create the user-movie matrix
     user_movie_matrix = all_ratings.pivot(
         index='UserID', 
         columns='MovieID', 
@@ -61,54 +58,41 @@ def get_user_movie_matrix(user_ratings_df):
     return user_movie_matrix
 
 def get_similar_users(user_ratings_df, n_similar=5):
-    """Find similar users based on rating patterns"""
-    # Create user-movie matrix
     user_movie_matrix = get_user_movie_matrix(user_ratings_df)
     
-    # Calculate similarity between all users
     user_similarity = cosine_similarity(user_movie_matrix)
     
-    # Convert to DataFrame for easier manipulation
     user_similarity_df = pd.DataFrame(
         user_similarity,
         index=user_movie_matrix.index,
         columns=user_movie_matrix.index
     )
     
-    # Get current user's ID (assuming it's the last one added)
     current_user_id = user_ratings_df['UserID'].iloc[0]
     
-    # Get similar users (excluding current user)
     similar_users = user_similarity_df[current_user_id].sort_values(ascending=False)[1:n_similar+1]
     
     return similar_users
 
 def get_recommendations(model_type, user_ratings_df, username, n_recommendations=5):
-    """Get movie recommendations for the current user"""
     if len(user_ratings_df) == 0:
         return []
         
-    # Find similar users
     similar_users = get_similar_users(user_ratings_df)
     
     recommendations = []
     
-    # For each similar user
     for user_id, similarity_score in similar_users.items():
-        # Get movies rated highly by this user
         user_movies = data_ratings[
             (data_ratings['UserID'] == user_id) & 
             (data_ratings['Rating'] >= 4.0)
         ]
         
-        # Exclude movies already rated by current user
         rated_movies = set(user_ratings_df['MovieID'].values)
         user_movies = user_movies[~user_movies['MovieID'].isin(rated_movies)]
         
-        # Get top rated movies
         top_movies = user_movies.nlargest(n_recommendations, 'Rating')
         
-        # Prepare recommendations
         user_recs = {
             'UserId': int(user_id),
             'SimilarityScore': float(similarity_score),
@@ -224,7 +208,6 @@ def rate_movie():
     
     ratings = load_user_ratings(username)
     
-    # Update existing rating or add new one
     rating_exists = False
     for r in ratings:
         if r['MovieID'] == movie_id:
@@ -273,18 +256,14 @@ def recommendations():
     
     username = session.get('username')
     model_type = request.args.get('model', 'knn')
-    
-    # Load current user's ratings
+
     user_ratings = load_user_ratings(username)
     
-    # If user has no ratings, we can't make recommendations
     if not user_ratings:
         return render_template('recommendations.html', recommended_movies=[], no_ratings=True)
     
-    # Convert user ratings to DataFrame
     user_ratings_df = pd.DataFrame(user_ratings)
     
-    # Get recommendations for the current user
     recommended_movies = get_recommendations(model_type, user_ratings_df, username)
     
     return render_template('recommendations.html', recommended_movies=recommended_movies, no_ratings=False)
