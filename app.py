@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 import json
+from models import NCF
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
@@ -260,13 +261,31 @@ def recommendations():
     user_ratings = load_user_ratings(username)
     
     if not user_ratings:
-        return render_template('recommendations.html', recommended_movies=[], no_ratings=True)
+        return render_template(
+            'recommendations.html', 
+            recommended_movies=[], 
+            no_ratings=True, 
+            model_type=model_type
+        )
     
     user_ratings_df = pd.DataFrame(user_ratings)
     
-    recommended_movies = get_recommendations(model_type, user_ratings_df, username)
+    loading = model_type == 'ncf'
     
-    return render_template('recommendations.html', recommended_movies=recommended_movies, no_ratings=False)
+    if model_type.lower() == 'ncf':
+        recommender = NCF(data_ratings, data_movies)
+        recommender.train_model(user_ratings_df, epochs=10)
+        recommended_movies = recommender.get_recommendations(9999)
+    else:
+        recommended_movies = get_recommendations(model_type, user_ratings_df, username)
+    
+    return render_template(
+        'recommendations.html', 
+        recommended_movies=recommended_movies, 
+        no_ratings=False,
+        model_type=model_type,
+        loading=loading
+    )
 
 @app.route('/search_suggestions')
 def search_suggestions():

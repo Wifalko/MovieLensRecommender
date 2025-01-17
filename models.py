@@ -130,20 +130,7 @@ class KNNRecommender:
     
 
 class NCF(nn.Module):
-    """
-    Neural Collaborative Filtering (NCF) model implementation.
-    Combines user and item embeddings with a neural network for rating prediction.
-    """
     def __init__(self, data_ratings, data_movies, latent_dim=16, layers=[32, 16, 8]):
-        """
-        Initialize NCF model
-        
-        Args:
-            data_ratings (pd.DataFrame): DataFrame containing user ratings
-            data_movies (pd.DataFrame): DataFrame containing movie information
-            latent_dim (int): Dimension of embedding layers
-            layers (list): List of layer sizes for MLP
-        """
         super(NCF, self).__init__()
         
         self.data_ratings = data_ratings
@@ -160,10 +147,6 @@ class NCF(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
     def _init_model(self):
-        """
-        Initialize model layers based on prepared data.
-        Creates embedding layers and MLP layers with specified dimensions.
-        """
         self.user_embedding = nn.Embedding(len(self.user_ids), self.latent_dim)
         self.movie_embedding = nn.Embedding(len(self.movie_ids), self.latent_dim)
 
@@ -179,16 +162,6 @@ class NCF(nn.Module):
         self.to(self.device)
         
     def forward(self, user_indices, movie_indices):
-        """
-        Forward pass of the model.
-        
-        Args:
-            user_indices (torch.Tensor): Tensor of user IDs
-            movie_indices (torch.Tensor): Tensor of movie IDs
-            
-        Returns:
-            torch.Tensor: Predicted ratings (0-1 range)
-        """
         user_features = self.user_embedding(user_indices)
         movie_features = self.movie_embedding(movie_indices)
         x = torch.cat([user_features, movie_features], dim=-1)
@@ -198,20 +171,12 @@ class NCF(nn.Module):
             
         return torch.sigmoid(self.output_layer(x))
     
-    def prepare_data(self, user_data=None):
+    def prepare_data(self, user_data):
         """
-        Prepare data for training
-        
-        Args:
-            user_data (pd.DataFrame, optional): Additional user ratings data
-            
-        Returns:
-            tuple: Train-test split of users, movies, and ratings
+        Prepare data for training, always including user_data
         """
-        if user_data is not None:
-            self.all_ratings = pd.concat([self.data_ratings, user_data], ignore_index=True)
-        else:
-            self.all_ratings = self.data_ratings.copy()
+        # Always include user data in training
+        self.all_ratings = pd.concat([self.data_ratings, user_data], ignore_index=True)
         
         self.user_ids = self.all_ratings['UserID'].unique()
         self.movie_ids = self.data_movies['MovieID'].unique()
@@ -223,18 +188,13 @@ class NCF(nn.Module):
         movies = self.all_ratings['MovieID'].map(self.movie_to_idx).values
         ratings = self.all_ratings['Rating'].values / 5.0  # Normalize ratings
 
-        self._init_model()
+        self._init_model()  # Reinitialize model for new user
         
         return train_test_split(users, movies, ratings, test_size=0.2, random_state=42)
     
-    def train_model(self, user_data=None, epochs=10, batch_size=64):
+    def train_model(self, user_data, epochs=10, batch_size=64):
         """
-        Train the model
-        
-        Args:
-            user_data (pd.DataFrame, optional): Additional user ratings data
-            epochs (int): Number of training epochs
-            batch_size (int): Size of training batches
+        Train the model, requiring user_data
         """
         X_train_user, X_test_user, X_train_movie, X_test_movie, y_train, y_test = self.prepare_data(user_data)
         
@@ -243,7 +203,7 @@ class NCF(nn.Module):
         
         n_samples = len(X_train_user)
         
-        self.train()  
+        self.train()
         for epoch in range(epochs):
             total_loss = 0
             
@@ -263,18 +223,11 @@ class NCF(nn.Module):
             avg_loss = total_loss / (n_samples // batch_size)
             print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
     
-    def get_recommendations(self, user_id, n_recommendations=4):
+    def get_recommendations(self, user_id, n_recommendations=10):
         """
-        Get movie recommendations for a user
-        
-        Args:
-            user_id (int): User ID to get recommendations for
-            n_recommendations (int): Number of recommendations to return
-            
-        Returns:
-            list: List containing recommendations with predicted ratings
+        Get recommendations for a specific user
         """
-        self.eval()  
+        self.eval()
         
         if user_id not in self.user_to_idx:
             return []
@@ -286,7 +239,14 @@ class NCF(nn.Module):
         with torch.no_grad():
             predictions = self(user_tensor, movie_tensor).cpu().numpy()
 
-        movie_indices = np.argsort(predictions.flatten())[-n_recommendations:][::-1]
+        # Filter out movies the user has already rated
+        rated_movies = set(self.all_ratings[self.all_ratings['UserID'] == user_id]['MovieID'].values)
+        available_movies = [(idx, pred) for idx, pred in enumerate(predictions.flatten()) 
+                          if self.movie_ids[idx] not in rated_movies]
+        
+        # Sort by prediction score and get top n
+        available_movies.sort(key=lambda x: x[1], reverse=True)
+        top_predictions = available_movies[:n_recommendations]
         
         user_summary = {
             'UserId': user_id,
@@ -294,7 +254,7 @@ class NCF(nn.Module):
             'Recommendations': []
         }
         
-        for idx in movie_indices:
+        for idx, pred in top_predictions:
             movie_id = self.movie_ids[idx]
             movie_info = self.data_movies[self.data_movies['MovieID'] == movie_id].iloc[0]
             avg_rating = self.data_ratings[self.data_ratings['MovieID'] == movie_id]['Rating'].mean()
@@ -302,22 +262,11 @@ class NCF(nn.Module):
             user_summary['Recommendations'].append({
                 'Title': movie_info['Title'],
                 'Genres': movie_info['Genres'],
-                'UserRating': float(predictions[idx] * 5),  
+                'UserRating': float(pred * 5),
                 'AverageRating': float(avg_rating)
             })
         
         return [user_summary]
-    
-    def save_model(self, path='ncf_model.pth'):
-        """Save the model to a file"""
-        torch.save(self.state_dict(), path)
-    
-    def load_model(self, path='ncf_model.pth'):
-        """Load the model from a file"""
-        if os.path.exists(path):
-            self.load_state_dict(torch.load(path))
-            return True
-        return False
 
 
 class MovieRecommender:
