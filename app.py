@@ -254,38 +254,45 @@ def delete_rating(movie_id):
 def recommendations():
     if 'username' not in session:
         return redirect(url_for('select_user'))
-    
+
     username = session.get('username')
     model_type = request.args.get('model', 'knn')
 
     user_ratings = load_user_ratings(username)
-    
     if not user_ratings:
         return render_template(
-            'recommendations.html', 
-            recommended_movies=[], 
-            no_ratings=True, 
+            'recommendations.html',
+            recommended_movies=[],
+            no_ratings=True,
             model_type=model_type
         )
-    
+
     user_ratings_df = pd.DataFrame(user_ratings)
-    
-    loading = model_type == 'ncf'
-    
+
     if model_type.lower() == 'ncf':
         recommender = NCF(data_ratings, data_movies)
         recommender.train_model(user_ratings_df, epochs=10)
-        recommended_movies = recommender.get_recommendations(9999)
+        recommended_movies = recommender.get_recommendations(9999) or []
     else:
-        recommended_movies = get_recommendations(model_type, user_ratings_df, username)
-    
+        recommended_movies = get_recommendations(model_type, user_ratings_df, username) or []
+
     return render_template(
-        'recommendations.html', 
-        recommended_movies=recommended_movies, 
+        'recommendations.html',
+        recommended_movies=recommended_movies,
         no_ratings=False,
         model_type=model_type,
-        loading=loading
     )
+
+@app.route('/recommendations/loading')
+def recommendations_loading():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+    
+    model_type = request.args.get('model', 'knn')
+    if model_type != 'ncf':
+        return redirect(url_for('recommendations', model=model_type))
+    
+    return render_template('loading.html', model_type=model_type)
 
 @app.route('/search_suggestions')
 def search_suggestions():

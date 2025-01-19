@@ -223,7 +223,7 @@ class NCF(nn.Module):
             avg_loss = total_loss / (n_samples // batch_size)
             print(f"Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}")
     
-    def get_recommendations(self, user_id, n_recommendations=10):
+    def get_recommendations(self, user_id, n_recommendations=30):
         """
         Get recommendations for a specific user
         """
