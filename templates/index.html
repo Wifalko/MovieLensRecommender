@@ -5,97 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lista filmów</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            padding-top: 20px;
-        }
-        .search-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        #searchInput {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .suggestions {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 4px 4px;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .suggestion-item {
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #eee;
-        }
-        .suggestion-item:hover {
-            background-color: #f5f5f5;
-        }
-        .suggestion-item:last-child {
-            border-bottom: none;
-        }
-        .suggestion-title {
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-        .suggestion-genre {
-            font-size: 0.8em;
-            color: #666;
-        }
-        .remove-btn {
-            padding: 5px 10px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-        .remove-btn:hover {
-            background-color: #c82333;
-        }
-        .actions-cell {
-            display: flex;
-            align-items: center;
-        }
-        .current-rating {
-            background-color: #28a745;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-        .rating-select {
-            padding: 5px;
-            margin-right: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .rate-btn {
-            padding: 5px 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .rate-btn:hover {
-            background-color: #0056b3;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">  
 </head>
 <body>
+
     <div class="container">
         <h1 class="mb-4">Lista filmów</h1>
         <div id="userInfo" style="margin-bottom: 20px; display: none;">
@@ -109,7 +22,8 @@
             </div>
         </div>
         <nav>
-            <a href="/recommendations" class="btn btn-primary mb-3">Polecane Filmy</a>
+            <a href="/similar_users" class="btn btn-primary mb-3 mr-2">Podobni Użytkownicy</a>
+            <a href="/recommended_movies" class="btn btn-primary mb-3 mr-2">Rekomendowane Filmy</a>
         </nav>
         <div class="search-container">
             <input type="text" id="searchInput" class="form-control" placeholder="Wyszukaj film...">
@@ -166,10 +80,11 @@
                         <option value="">Wybierz ocenę</option>
                         ${ratingOptions}
                     </select>
-                    <button class="rate-btn" onclick="rateMovie(${movie.MovieID}, this)">
+                    <button class="rate-btn btn" onclick="rateMovie(${movie.MovieID}, this)">
                         ${currentRating ? 'Zmień ocenę' : 'Oceń'}
                     </button>
-                    <button class="remove-btn" onclick="removeMovie(this)">Usuń</button>
+                    <button class="btn-succes" onclick="removeMovie(this)">Usuń
+                        </button>
                 </td>
             `;
 

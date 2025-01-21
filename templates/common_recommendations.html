@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wspólne Rekomendacje</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        #loading-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 1.5rem;
+            text-align: center;
+            line-height: 100vh;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Wspólne Rekomendacje Filmowe</h1>
+        <a href="{{ url_for('index') }}">Powrót do strony głównej</a>
+    </header>
+    
+    <main>
+        <section>
+            <h2>Wybierz dwóch użytkowników</h2>
+            <form id="recommendation-form" method="POST" action="{{ url_for('common_recommendations') }}">
+                <div>
+                    <label for="user1">Użytkownik 1:</label>
+                    <select name="selected_users" id="user1" required>
+                        <option value="">-- Wybierz użytkownika --</option>
+                        {% for username in users %}
+                        <option value="{{ username }}" {% if username in selected_usernames %}selected{% endif %}>
+                            {{ username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="user2">Użytkownik 2:</label>
+                    <select name="selected_users" id="user2" required>
+                        <option value="">-- Wybierz użytkownika --</option>
+                        {% for username in users %}
+                        <option value="{{ username }}" {% if username in selected_usernames %}selected{% endif %}>
+                            {{ username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit">Znajdź wspólne rekomendacje</button>
+            </form>
+        </section>
+
+        {% if common_movies %}
+        <section>
+            <h2>Wspólne Rekomendacje</h2>
+            <ul>
+                {% for movie in common_movies %}
+                <li>
+                    <strong>{{ movie.Title }}</strong> - {{ movie.Genres }}<br>
+                    Ocena użytkownika 1: {{ movie.User1Rating }}<br>
+                    Ocena użytkownika 2: {{ movie.User2Rating }}
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% elif selected_usernames %}
+        <section>
+            <h2>Brak wspólnych rekomendacji</h2>
+            <p>Nie znaleziono wspólnych filmów dla wybranych użytkowników.</p>
+        </section>
+        {% endif %}
+    </main>
+
+    <div id="loading-screen">Proszę czekać, trwa generowanie rekomendacji...</div>
+
+    <script>
+        const form = document.getElementById('recommendation-form');
+        const loadingScreen = document.getElementById('loading-screen');
+
+        form.addEventListener('submit', () => {
+            loadingScreen.style.display = 'block';
+        });
+    </script>
+</body>
+</html>

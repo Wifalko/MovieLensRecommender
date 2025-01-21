@@ -331,5 +331,63 @@ def get_movie(movie_id):
     
     return jsonify(movie_data)
 
+@app.route('/similar_users')
+def similar_users():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+
+    username = session.get('username')
+    user_ratings = load_user_ratings(username)
+    
+    if not user_ratings:
+        return render_template(
+            'similar_users.html',
+            recommended_movies=[],
+            no_ratings=True
+        )
+
+    user_ratings_df = pd.DataFrame(user_ratings)
+    recommended_movies = get_recommendations('knn', user_ratings_df, username) or []
+
+    return render_template(
+        'similar_users.html',
+        recommended_movies=recommended_movies,
+        no_ratings=False
+    )
+
+@app.route('/recommended_movies')
+def recommended_movies():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+
+    username = session.get('username')
+    user_ratings = load_user_ratings(username)
+    
+    if not user_ratings:
+        return render_template(
+            'recommended_movies.html',
+            recommended_movies=[],
+            no_ratings=True,
+            loading=False
+        )
+
+    user_ratings_df = pd.DataFrame(user_ratings)
+    recommender = NCF(data_ratings, data_movies)
+    recommender.train_model(user_ratings_df, epochs=10)
+    recommended_movies = recommender.get_recommendations(9999) or []
+
+    return render_template(
+        'recommended_movies.html',
+        recommended_movies=recommended_movies,
+        no_ratings=False,
+        loading=True
+    )
+
+@app.route('/recommended_movies/loading')
+def recommended_movies_loading():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+    return render_template('loading.html')
+
 if __name__ == '__main__':
     app.run(debug=True)
