@@ -373,7 +373,7 @@ def recommended_movies():
 
     user_ratings_df = pd.DataFrame(user_ratings)
     recommender = NCF(data_ratings, data_movies)
-    recommender.train_model(user_ratings_df, epochs=10)
+    recommender.train_model(user_ratings_df, epochs=3)
     recommended_movies = recommender.get_recommendations(9999) or []
 
     return render_template(
