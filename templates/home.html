@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">  
+    <title>Rekomender Filmów</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            position: relative;
+            width: 80%;
+            max-width: 1200px;
+        }
+
+        .content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .left-section {
+            text-align: left;
+        }
+
+        .left-section h1 {
+            font-size: 3rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .left-section p {
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .left-section button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .left-section button:hover {
+            background-color: #0056b3;
+        }
+
+        .right-section {
+            position: relative;
+            width: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera {
+            position: relative;
+            width: 140px;
+            height: 100px;
+            background-color: #333;
+            border-radius: 5px;
+        }
+
+        .camera::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: -25px; 
+            width: 20px;
+            height: 70px;
+            background-color: #333;
+            border-radius: 2px;
+        }
+        
+
+        .camera::after {
+            content: '';    
+            position: absolute;
+            top: 25px;
+            left: -90px; 
+            width: 80px;
+            height: 40px;
+            background-color: #333;
+            clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%); 
+            transform: rotate(90deg);
+        }
+        
+        .camera .circle1 {
+            position: absolute;
+            top: -70px; 
+            left: 45px; 
+            width: 65px;
+            height: 65px;
+            background-color: #333; 
+            border-radius: 50%;
+        }
+
+        .camera .circle2 {
+            position: absolute;
+            top: -55px; 
+            right: 105px; 
+            width: 50px;
+            height: 50px;
+            background-color: #333; 
+            border-radius: 50%;
+        }
+
+        .tripod {
+            position: absolute;
+            bottom: -150px;
+            left: 45%;
+            width: 10px;
+            height: 150px;
+            background-color: #333;
+            
+        }
+
+        .tripod::before, .tripod::after {
+            content: '';
+            position: absolute;
+            bottom: -70px;
+            width: 10px;
+            height: 70px;
+            background-color: #333;
+            transform-origin: top center;
+        }
+
+        .tripod::before {
+            left: -40px;
+            transform: rotate(-150deg);
+        }
+
+        .tripod::after {
+            right: -40px;
+            transform: rotate(150deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="left-section">
+                <h1>Rekomender Filmów</h1>
+                <p>Znajdź najlepsze filmy dopasowane do Twojego gustu!</p>
+                <button onclick="location.href='/index'">Przejdź do aplikacji</button>
+            </div>
+
+            <div class="right-section">
+                <div class="camera">
+                    <div class="tripod"></div>
+                    <div class="circle1"></div>
+                    <div class="circle2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

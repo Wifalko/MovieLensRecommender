@@ -1,42 +1,26 @@
 [
   {
-    "UserID": 9999,
+    "UserID": 10000,
     "MovieID": 2571,
     "Rating": 5.0,
-    "Timestamp": "2025-01-13 22:19:37",
+    "Timestamp": "2025-02-09 13:57:27",
     "Title": "Matrix, The (1999)",
     "Genres": "Action|Sci-Fi|Thriller"
   },
   {
-    "UserID": 9999,
-    "MovieID": 1088,
+    "UserID": 10000,
+    "MovieID": 2,
+    "Rating": 4.0,
+    "Timestamp": "2025-02-09 13:57:34",
+    "Title": "Jumanji (1995)",
+    "Genres": "Adventure|Children's|Fantasy"
+  },
+  {
+    "UserID": 10000,
+    "MovieID": 1375,
     "Rating": 4.5,
-    "Timestamp": "2025-01-13 22:19:45",
-    "Title": "Dirty Dancing (1987)",
-    "Genres": "Musical|Romance"
-  },
-  {
-    "UserID": 9999,
-    "MovieID": 87,
-    "Rating": 1.5,
-    "Timestamp": "2025-01-13 22:19:52",
-    "Title": "Dunston Checks In (1996)",
-    "Genres": "Children's|Comedy"
-  },
-  {
-    "UserID": 9999,
-    "MovieID": 88,
-    "Rating": 3.0,
-    "Timestamp": "2025-01-13 22:20:01",
-    "Title": "Black Sheep (1996)",
-    "Genres": "Comedy"
-  },
-  {
-    "UserID": 9999,
-    "MovieID": 253,
-    "Rating": 4.5,
-    "Timestamp": "2025-01-13 22:20:15",
-    "Title": "Interview with the Vampire (1994)",
-    "Genres": "Drama|Horror"
+    "Timestamp": "2025-02-09 13:57:41",
+    "Title": "Star Trek III: The Search for Spock (1984)",
+    "Genres": "Action|Adventure|Sci-Fi"
   }
 ]

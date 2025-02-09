@@ -1,50 +1,42 @@
 [
   {
     "UserID": 9999,
-    "MovieID": 29,
+    "MovieID": 96,
     "Rating": 4.0,
-    "Timestamp": "2025-01-13 22:21:12",
-    "Title": "City of Lost Children, The (1995)",
-    "Genres": "Adventure|Sci-Fi"
+    "Timestamp": "2025-02-09 13:56:51",
+    "Title": "In the Bleak Midwinter (1995)",
+    "Genres": "Comedy"
   },
   {
     "UserID": 9999,
-    "MovieID": 10,
-    "Rating": 5.0,
-    "Timestamp": "2025-01-13 22:21:27",
-    "Title": "GoldenEye (1995)",
-    "Genres": "Action|Adventure|Thriller"
-  },
-  {
-    "UserID": 9999,
-    "MovieID": 190,
+    "MovieID": 2378,
     "Rating": 4.0,
-    "Timestamp": "2025-01-13 22:21:52",
-    "Title": "Safe (1995)",
-    "Genres": "Thriller"
+    "Timestamp": "2025-02-09 13:56:57",
+    "Title": "Police Academy (1984)",
+    "Genres": "Comedy"
   },
   {
     "UserID": 9999,
-    "MovieID": 1122,
+    "MovieID": 44,
+    "Rating": 1.0,
+    "Timestamp": "2025-02-09 13:57:04",
+    "Title": "Mortal Kombat (1995)",
+    "Genres": "Action|Adventure"
+  },
+  {
+    "UserID": 9999,
+    "MovieID": 384,
     "Rating": 4.0,
-    "Timestamp": "2025-01-13 22:22:03",
-    "Title": "Plutonium Circus (1995)",
-    "Genres": "Documentary"
+    "Timestamp": "2025-02-09 13:57:11",
+    "Title": "Bad Company (1995)",
+    "Genres": "Action"
   },
   {
     "UserID": 9999,
-    "MovieID": 1964,
-    "Rating": 2.0,
-    "Timestamp": "2025-01-13 22:22:19",
-    "Title": "Klute (1971)",
-    "Genres": "Drama|Mystery"
-  },
-  {
-    "UserID": 9999,
-    "MovieID": 124,
+    "MovieID": 276,
     "Rating": 3.0,
-    "Timestamp": "2025-01-13 23:43:36",
-    "Title": "Star Maker, The (Uomo delle stelle, L') (1995)",
-    "Genres": "Drama"
+    "Timestamp": "2025-02-09 13:57:20",
+    "Title": "Milk Money (1994)",
+    "Genres": "Comedy|Romance"
   }
 ]

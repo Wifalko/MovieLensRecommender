@@ -31,7 +31,7 @@ def get_recommendations_ncf(user_id=9999, n_recommendations=4, user_data=None):
 
     if not recommender.load_model():
         print("Training new NCF model...")
-        recommender.train_model(user_data=user_data, epochs=10)
+        recommender.train_model(user_data=user_data, epochs=4)
         recommender.save_model()
     
     return recommender.get_recommendations(user_id, n_recommendations)

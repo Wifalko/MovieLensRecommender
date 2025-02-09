@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from DataReader import file_reader
 from datetime import datetime
 import pandas as pd
@@ -38,6 +38,55 @@ def load_user_ratings(username):
             return json.load(f)
     except FileNotFoundError:
         return []
+    
+USER_RATINGS_FOLDER = "user_ratings"
+
+def get_user_ratings_file(username):
+    """Zwraca ścieżkę do pliku ocen użytkownika."""
+    return os.path.join(USER_RATINGS_FOLDER, f"{username}_ratings.json")
+
+def load_user_ratings(username):
+    """Wczytuje oceny użytkownika z jego pliku JSON."""
+    file_path = get_user_ratings_file(username)
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as file:
+            try:
+                return json.load(file)
+            except json.JSONDecodeError:
+                return []
+    return []
+
+def save_user_ratings(username, ratings):
+    """Zapisuje oceny użytkownika do jego pliku JSON."""
+    file_path = get_user_ratings_file(username)
+    with open(file_path, "w", encoding="utf-8") as file:
+        json.dump(ratings, file, indent=4)
+
+def get_user_id(username, start_id=9999):
+    """Zwraca przypisane UserID dla użytkownika lub nadaje nowe."""
+    ratings = load_user_ratings(username)
+    
+    if ratings:
+        return ratings[0]["UserID"]  
+
+    existing_user_ids = set()
+    
+    for filename in os.listdir(USER_RATINGS_FOLDER):
+        if filename.endswith("_ratings.json"):
+            file_path = os.path.join(USER_RATINGS_FOLDER, filename)
+            with open(file_path, "r", encoding="utf-8") as file:
+                try:
+                    data = json.load(file)
+                    if data:
+                        existing_user_ids.add(data[0]["UserID"])  
+                except json.JSONDecodeError:
+                    print(f"Błąd odczytu pliku: {file_path}")
+
+    user_id = start_id
+    while user_id in existing_user_ids:
+        user_id += 1
+
+    return user_id
 
 def save_user_ratings(username, ratings):
     os.makedirs(USER_RATINGS_DIR, exist_ok=True)
@@ -116,42 +165,89 @@ def get_recommendations(model_type, user_ratings_df, username, n_recommendations
     
     return recommendations
 
+def load_users():
+    try:
+        with open('users.json', 'r') as f:
+            return json.load(f)  
+    except FileNotFoundError:
+        return {}
+
+def get_all_users():
+    users = load_users()
+    return sorted([user_data['name'] for user_data in users.values()])
+
+def generate_unique_user_id():
+    users = load_users()
+    if not users:
+        return 1
+    existing_ids = [int(users[user].get('userId', 0)) for user in users]
+    return max(existing_ids) + 1
+
+
 @app.route('/')
+def home():
+    return render_template('home.html')  
+
+@app.route('/index')
 def index():
     if 'username' not in session:
         return redirect(url_for('select_user'))
-    return render_template('index.html')
+    username = session['username']
+    return render_template('index.html', username=username)
 
-@app.route('/select_user')
-def select_user():
-    users = load_users()
-    return render_template('select_user.html', users=users)
 
 @app.route('/create_user', methods=['POST'])
 def create_user():
-    data = request.json
-    username = data.get('username')
-    
-    if not username:
-        return jsonify({'error': 'Username is required'}), 400
+    try:
+        data = request.json
+        username = data.get('username')
         
+        if not username:
+            return jsonify({'error': 'Username is required'}), 400
+            
+        users = load_users()
+        
+        if username in users:
+            return jsonify({'error': 'Username already exists'}), 400
+        
+        new_user_id = generate_unique_user_id()
+        users[username] = {
+            'name': username,
+            'userId': new_user_id,
+            'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        save_users(users)
+        session['username'] = username
+        session['user_id'] = new_user_id
+        
+        return jsonify({
+            'success': True,
+            'userId': new_user_id,
+            'username': username
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/select_user', methods=['GET', 'POST'])
+def select_user():
+    if request.method == 'GET':
+        users = load_users()
+        return render_template('select_user.html', users=users)
+    
+    username = request.form.get('username')
+    if not username:
+        flash('Username is required')
+        return redirect(url_for('select_user'))
+    
     users = load_users()
+    if username not in users:
+        flash('User does not exist')
+        return redirect(url_for('select_user'))
     
-    if username in users:
-        return jsonify({'error': 'Username already exists'}), 400
-    
-    users[username] = {
-        'name': username,
-        'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
-    
-    save_users(users)
     session['username'] = username
-    
-    return jsonify({
-        'success': True,
-        'username': username
-    })
+    session['user_id'] = users[username]['userId']
+    return redirect(url_for('index'))
 
 @app.route('/switch_user', methods=['POST'])
 def switch_user():
@@ -201,14 +297,15 @@ def rate_movie():
     data = request.json
     movie_id = data.get('movieId')
     rating = data.get('rating')
-    
+
     if not movie_id or not rating:
         return jsonify({'error': 'Missing required fields'}), 400
-    
+
     movie = movies[movies['MovieID'] == movie_id].iloc[0]
-    
     ratings = load_user_ratings(username)
     
+    user_id = get_user_id(username)  
+
     rating_exists = False
     for r in ratings:
         if r['MovieID'] == movie_id:
@@ -218,7 +315,7 @@ def rate_movie():
     
     if not rating_exists:
         ratings.append({
-            "UserID": 9999,  # Default UserID for new ratings
+            "UserID": user_id,  
             "MovieID": movie_id,
             "Rating": float(rating),
             "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -257,22 +354,24 @@ def recommendations():
 
     username = session.get('username')
     model_type = request.args.get('model', 'knn')
-
+    user_id = get_user_id(username)  
     user_ratings = load_user_ratings(username)
     if not user_ratings:
         return render_template(
             'recommendations.html',
             recommended_movies=[],
             no_ratings=True,
-            model_type=model_type
+            model_type=model_type,
+            all_users=get_all_users(),
+            current_user=username
         )
 
     user_ratings_df = pd.DataFrame(user_ratings)
 
     if model_type.lower() == 'ncf':
         recommender = NCF(data_ratings, data_movies)
-        recommender.train_model(user_ratings_df, epochs=10)
-        recommended_movies = recommender.get_recommendations(9999) or []
+        recommender.train_model(user_ratings_df, epochs=4)
+        recommended_movies = recommender.get_recommendations(user_id) or []
     else:
         recommended_movies = get_recommendations(model_type, user_ratings_df, username) or []
 
@@ -281,6 +380,8 @@ def recommendations():
         recommended_movies=recommended_movies,
         no_ratings=False,
         model_type=model_type,
+        all_users=get_all_users(),
+        current_user=username,
     )
 
 @app.route('/recommendations/loading')
@@ -362,7 +463,7 @@ def recommended_movies():
 
     username = session.get('username')
     user_ratings = load_user_ratings(username)
-    
+    user_id = get_user_id(username)
     if not user_ratings:
         return render_template(
             'recommended_movies.html',
@@ -374,7 +475,7 @@ def recommended_movies():
     user_ratings_df = pd.DataFrame(user_ratings)
     recommender = NCF(data_ratings, data_movies)
     recommender.train_model(user_ratings_df, epochs=3)
-    recommended_movies = recommender.get_recommendations(9999) or []
+    recommended_movies = recommender.get_recommendations(user_id) or []
 
     return render_template(
         'recommended_movies.html',
@@ -389,5 +490,74 @@ def recommended_movies_loading():
         return redirect(url_for('select_user'))
     return render_template('loading.html')
 
+
+@app.route('/dual_recommendations')
+def dual_recommendations():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+    
+    current_user = session['username']
+    return render_template(
+        'dual_recommendations.html',
+        current_user=current_user,
+        all_users=get_all_users(),
+        recommended_movies=None,
+        second_user=None
+    )
+
+@app.route('/get_dual_recommendations')
+def get_dual_recommendations():
+    if 'username' not in session:
+        return redirect(url_for('select_user'))
+    
+    current_user = session['username']
+    second_user = request.args.get('second_user')
+    current_user_id = get_user_id(current_user)
+    second_user_id = get_user_id(second_user)
+
+    if not second_user:
+        return redirect(url_for('dual_recommendations'))
+    
+    try:
+        user1_ratings = load_user_ratings(current_user)
+        user2_ratings = load_user_ratings(second_user)
+        
+        if not user1_ratings or not user2_ratings:
+            flash('Nie znaleziono ocen dla jednego lub obu użytkowników', 'error')
+            return redirect(url_for('dual_recommendations'))
+        
+        user1_df = pd.DataFrame(user1_ratings)
+        user2_df = pd.DataFrame(user2_ratings)
+
+        merged_df = pd.merge(user1_df, user2_df, on='MovieID', how='outer', suffixes=('_user1', '_user2'))
+        merged_df['Rating'] = merged_df[['Rating_user1', 'Rating_user2']].mean(axis=1, skipna=True)
+        merged_df['Title'] = merged_df['Title_user1'].combine_first(merged_df['Title_user2'])
+        merged_df['Genres'] = merged_df['Genres_user1'].combine_first(merged_df['Genres_user2'])
+                                                                      
+        merged_df['UserID'] = 0
+        merged_df['Timestamp'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        result_df = merged_df[['UserID', 'MovieID', 'Rating', 'Timestamp', 'Title', 'Genres']]
+        
+        recommender = NCF(data_ratings, data_movies)
+        recommender.train_model(result_df, epochs=4)
+        recommended_movies = recommender.get_recommendations(0)
+        
+        if recommended_movies is None or len(recommended_movies) == 0:
+            flash('Nie udało się wygenerować rekomendacji', 'error')
+            return redirect(url_for('dual_recommendations'))
+            
+        return render_template(
+            'dual_recommendations.html',
+            current_user=current_user,
+            all_users=get_all_users(),
+            recommended_movies=recommended_movies,
+            second_user=second_user
+        )
+    except Exception as e:
+        flash(f'Wystąpił błąd podczas generowania rekomendacji: {str(e)}', 'error')
+        return redirect(url_for('dual_recommendations'))
+    
+    
 if __name__ == '__main__':
     app.run(debug=True)

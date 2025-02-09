@@ -175,7 +175,6 @@ class NCF(nn.Module):
         """
         Prepare data for training, always including user_data
         """
-        # Always include user data in training
         self.all_ratings = pd.concat([self.data_ratings, user_data], ignore_index=True)
         
         self.user_ids = self.all_ratings['UserID'].unique()
@@ -186,9 +185,9 @@ class NCF(nn.Module):
         
         users = self.all_ratings['UserID'].map(self.user_to_idx).values
         movies = self.all_ratings['MovieID'].map(self.movie_to_idx).values
-        ratings = self.all_ratings['Rating'].values / 5.0  # Normalize ratings
+        ratings = self.all_ratings['Rating'].values / 5.0 
 
-        self._init_model()  # Reinitialize model for new user
+        self._init_model()
         
         return train_test_split(users, movies, ratings, test_size=0.2, random_state=42)
     
@@ -239,12 +238,10 @@ class NCF(nn.Module):
         with torch.no_grad():
             predictions = self(user_tensor, movie_tensor).cpu().numpy()
 
-        # Filter out movies the user has already rated
         rated_movies = set(self.all_ratings[self.all_ratings['UserID'] == user_id]['MovieID'].values)
         available_movies = [(idx, pred) for idx, pred in enumerate(predictions.flatten()) 
                           if self.movie_ids[idx] not in rated_movies]
         
-        # Sort by prediction score and get top n
         available_movies.sort(key=lambda x: x[1], reverse=True)
         top_predictions = available_movies[:n_recommendations]
         

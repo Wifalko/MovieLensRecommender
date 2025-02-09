@@ -15,7 +15,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div>
                     <strong>Aktualny użytkownik: </strong>
-                    <span id="userName"></span>
+                    <span id="userName">{{ username }}</span>
                     <span id="userDescription" style="color: #666; margin-left: 10px;"></span>
                 </div>
                 <a href="/select_user" class="btn btn-success">Zmień użytkownika</a>
@@ -24,6 +24,7 @@
         <nav>
             <a href="/similar_users" class="btn btn-primary mb-3 mr-2">Podobni Użytkownicy</a>
             <a href="/recommended_movies" class="btn btn-primary mb-3 mr-2">Rekomendowane Filmy</a>
+            <a href="/dual_recommendations" class="btn btn-primary mb-3 mr-2">Rekomendacje dla Dwóch Osób</a>
         </nav>
         <div class="search-container">
             <input type="text" id="searchInput" class="form-control" placeholder="Wyszukaj film...">
