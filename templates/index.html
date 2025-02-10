@@ -8,15 +8,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">  
 </head>
 <body>
-
     <div class="container">
         <h1 class="mb-4">Lista filmów</h1>
-        <div id="userInfo" style="margin-bottom: 20px; display: none;">
+        <div id="userInfo" class="mb-4">
             <div class="d-flex align-items-center justify-content-between">
                 <div>
                     <strong>Aktualny użytkownik: </strong>
                     <span id="userName">{{ username }}</span>
-                    <span id="userDescription" style="color: #666; margin-left: 10px;"></span>
+                    <span id="userDescription" class="text-muted ml-2"></span>
                 </div>
                 <a href="/select_user" class="btn btn-success">Zmień użytkownika</a>
             </div>
@@ -214,28 +213,10 @@
             row.remove();
         }
 
-        async function loadCurrentUser() {
-            try {
-                const response = await fetch('/get_current_user');
-                if (!response.ok) {
-                    window.location.href = '/select_user';
-                    return;
-                }
-
-                const user = await response.json();
-                document.getElementById('userName').textContent = user.name;
-                document.getElementById('userDescription').textContent = user.description;
-                document.getElementById('userInfo').style.display = 'block';
-            } catch (error) {
-                console.error('Błąd podczas ładowania informacji o użytkowniku:', error);
-                window.location.href = '/select_user';
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
-            loadCurrentUser();
             loadSavedRatings();
         });
+
     </script>
 </body>
 </html>

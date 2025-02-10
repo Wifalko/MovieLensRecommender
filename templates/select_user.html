@@ -70,7 +70,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    window.location.href = '/';
+                    window.location.href = '/index';
                 } else {
                     errorDiv.textContent = data.error;
                     errorDiv.style.display = 'block';
@@ -93,7 +93,7 @@
                 });
 
                 if (response.ok) {
-                    window.location.href = '/';
+                    window.location.href = '/index';
                 } else {
                     const data = await response.json();
                     alert(data.error || 'Error switching user');

@@ -22,5 +22,13 @@
     "Timestamp": "2025-02-09 13:57:41",
     "Title": "Star Trek III: The Search for Spock (1984)",
     "Genres": "Action|Adventure|Sci-Fi"
+  },
+  {
+    "UserID": 10000,
+    "MovieID": 167,
+    "Rating": 4.5,
+    "Timestamp": "2025-02-10 11:53:44",
+    "Title": "Feast of July (1995)",
+    "Genres": "Drama"
   }
 ]
